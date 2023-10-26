@@ -1,0 +1,280 @@
+
+#define TOUCH_MODULES_CST_SELF        //Use CST816 by default
+
+#include "Wire.h"
+#include "functions.h"
+#include "Adafruit_HTU31D.h"
+#include "TFT_eSPI.h" 
+#include "TimeLib.h"
+#include "TouchLib.h"
+#include "pin_config.h"
+
+#define PIXEL_WIDTH 320
+#define PIXEL_HEIGHT 170
+
+/* Setup I2C bus connections*/
+TwoWire SensorsI2C = TwoWire(1); // Create another I2C bus instance for sensor reads
+
+int32_t width, height, left_center, right_center;
+
+TFT_eSPI tft;
+TFT_eSprite spr = TFT_eSprite(&tft);
+
+/* Temp/Humidity Sensor Setup*/
+Adafruit_HTU31D htu_ext = Adafruit_HTU31D();
+Adafruit_HTU31D htu_int = Adafruit_HTU31D();
+bool heaterEnabled = false;
+
+TouchLib touch(Wire, PIN_IIC_SDA, PIN_IIC_SCL, CTS820_SLAVE_ADDRESS, PIN_TOUCH_RES);
+#define TOUCH_GET_FORM_INT 0
+
+unsigned long longPressDuration = 3000;  // 3 seconds
+unsigned long touchStartTime = 0;
+bool isTouching = false;
+
+
+
+void displayRawData() {
+    Serial.println("Creating Raw Data Sprite");
+    // Create a sprite
+    spr.createSprite(TFT_WIDTH, TFT_HEIGHT);  // Assumes standard width and height. Adjust if different.
+
+    spr.fillSprite(TFT_BLACK);  // Clear sprite
+
+    // Getting the readings
+    Serial.println("Reading External Sensor");
+    SensorReadings externalReadings = readExternalSensors();
+    Serial.println("Reading Internal Sensor");
+    SensorReadings internalReadings = readInternalSensors();
+    Serial.println("Reading Skin Res Sensor");
+    float skinRes = calcSkinRes();
+
+    // Displaying data points on sprite
+    Serial.println("Setting Text Size");
+    spr.setTextSize(1);
+
+    spr.setCursor(20, 20);
+    spr.print("Body Temp: ");
+    spr.print(externalReadings.temp);
+    spr.println(" C");
+
+    spr.setCursor(20, 60);
+    spr.print("Ambient Temp: ");
+    spr.print(internalReadings.temp);
+    spr.println(" C");
+
+    spr.setCursor(20, 100);
+    spr.print("Body Humidity: ");
+    spr.print(externalReadings.Humidity);
+    spr.println(" %");
+
+    spr.setCursor(20, 140);
+    spr.print("Ambient Humidity: ");
+    spr.print(internalReadings.Humidity);
+    spr.println(" %");
+
+    char str_buf[20] = {0};
+    spr.setCursor(20, 180);
+    spr.print("Skin Resistance: ");
+    spr.print(formatResistance(skinRes, str_buf));
+
+    // Push the sprite to the screen
+    spr.pushSprite(0, 0);
+
+    // Delete the sprite to free up the RAM
+    spr.deleteSprite();
+
+}
+
+
+void displayClock() {
+    // Create a sprite
+    spr.createSprite(TFT_WIDTH, TFT_HEIGHT);  // Assumes standard width and height. Adjust if different.
+    spr.fillSprite(TFT_BLACK);  // Clear sprite
+    spr.setTextSize(3);
+    char timeStr[10];
+    sprintf(timeStr, "%02d:%02d:%02d", hour(), minute(), second());
+    spr.setCursor(60, 90);  // Centering might need adjusting
+    spr.print(timeStr);
+
+    // Push the sprite to the screen
+    spr.pushSprite(0, 0);
+
+    // Delete the sprite to free up the RAM
+    spr.deleteSprite();
+
+}
+
+void displaySweatRate() {
+    // Create a sprite
+    spr.createSprite(TFT_WIDTH, TFT_HEIGHT);  // Assumes standard width and height. Adjust if different.
+
+    // get Sweat Rate
+    float sweatRate = calcSweatRate();
+
+    spr.fillSprite(TFT_BLACK);  // Clear sprite
+
+    spr.setTextSize(3);
+    spr.setCursor(60, 90); // Centering might need adjusting
+    spr.print("Sweat Rate: 10 mL/min"); // Placeholder value
+
+    // Push the sprite to the screen
+    spr.pushSprite(0, 0);
+  
+    // Delete the sprite to free up the RAM
+    spr.deleteSprite();
+}
+
+
+float calcSkinRes(){
+    // implement code later to read skin res
+    return(1000000);
+}
+
+float calcSweatRate(){
+    // implement code later to read skin res
+    return(10);
+}
+
+const char* formatResistance(float resistance, char* buffer) {
+
+    if (resistance >= 1e9) {
+        sprintf(buffer, "%.2fGΩ", resistance / 1e9);
+    } else if (resistance >= 1e6) {
+        sprintf(buffer, "%.2fMΩ", resistance / 1e6);
+    } else if (resistance >= 1e3) {
+        sprintf(buffer, "%.2fKΩ", resistance / 1e3);
+    } else {
+        sprintf(buffer, "%.2fΩ", resistance);
+    }
+    return buffer;
+}
+
+float change_to_f(float temp_c){
+  return (temp_c * 9.0/5.0) + 32.0;
+}
+
+void handleTouch() {
+    // updates states if touches happen. 
+    if (touch.read()) {
+        TP_Point t = touch.getPoint(0);
+
+        // Implement long press logic
+        if (t.pressure > 1) {
+            if (!isTouching) {
+                touchStartTime = millis();
+                isTouching = true;
+            } else if (millis() - touchStartTime >= longPressDuration) {
+                // Long press detected
+                currentFaceState = CLOCK;  // Switch to raw data view on long press
+                isTouching = false;
+            }
+        } else {
+            isTouching = false;
+        }
+    }
+}
+
+SensorReadings readExternalSensors() {
+    // Implement your I2C reading logic here.
+    Serial.println("Attempting to read External Sensor!");
+    sensors_event_t humidity, temp;
+    htu_ext.getEvent(&humidity, &temp);
+    return {temp.temperature, humidity.relative_humidity};
+}
+
+SensorReadings readInternalSensors() {
+    // Implement your I2C reading logic here.
+    Serial.println("Attempting to read Internal Sensor!");
+    sensors_event_t humidity, temp;
+    htu_int.getEvent(&humidity, &temp);
+    return {temp.temperature, humidity.relative_humidity};
+}
+
+void initializeTFT() {
+  /*setup screen params*/
+  width = PIXEL_WIDTH;
+  height = PIXEL_HEIGHT;
+  tft.init();
+  tft.setRotation(1);
+  tft.fillScreen(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+
+  left_center = width*0.25;
+  right_center = width*0.75;
+
+  /* startup color sequence*/
+  tft.fillScreen(TFT_BLACK); delay(1000);
+
+  Serial.println(PIN_LCD_BL);
+  ledcSetup(0, 2000, 8);
+  ledcAttachPin(PIN_LCD_BL, 0);
+  ledcWrite(0, 255);
+}
+
+void initializeTempSensors() {
+  if (!htu_ext.begin(0x40, &SensorsI2C)) {
+    delay(3);
+    if (!htu_ext.begin(0x40, &SensorsI2C)) {
+      Serial.println("Failed to initialize external HTU31D sensor!");
+    }
+  }
+  if (!htu_int.begin(0x41, &SensorsI2C)) {
+    delay(3);
+    if (!htu_ext.begin(0x40, &SensorsI2C)) {
+      Serial.println("Failed to initialize internal HTU31D sensor!");
+    }
+  }
+}
+
+void resetDisplay(){
+    tft.fillScreen(TFT_WHITE);
+    delay(1);
+    tft.fillScreen(TFT_BLACK);
+    delay(1);
+}
+
+void initPins(){  
+  /*setup touch params*/
+  gpio_hold_dis((gpio_num_t)PIN_TOUCH_RES);
+  pinMode(PIN_POWER_ON, OUTPUT);
+  digitalWrite(PIN_POWER_ON, HIGH);
+  pinMode(PIN_TOUCH_RES, OUTPUT);
+  digitalWrite(PIN_TOUCH_RES, LOW);
+  delay(500);
+  digitalWrite(PIN_TOUCH_RES, HIGH);
+
+  #if TOUCH_GET_FORM_INT
+    attachInterrupt(
+        PIN_TOUCH_INT, [] { get_int = true; }, FALLING);
+  #endif
+
+  pinMode(PIN_GPIO_02, INPUT);
+  pinMode(PIN_GPIO_03, INPUT);
+}
+
+void beginI2C(){
+  SensorsI2C.begin(PIN_THIC_SDA, PIN_THIC_SCL); // Initialize I2C with the specified pins
+  delay(1);
+  Wire.begin(PIN_IIC_SDA, PIN_IIC_SCL);
+  delay(1);
+}
+
+void toggleFaceState() {
+  // An example of toggling between different states
+
+  switch(currentFaceState) {
+    case CLOCK:
+        currentFaceState = RAW_DATA;
+        break;
+    case SWEAT_RATE:
+        currentFaceState = CLOCK;
+        break;
+    case RAW_DATA:
+        currentFaceState = SWEAT_RATE;
+        break;
+    default:
+        currentFaceState = CLOCK;
+  }
+}
