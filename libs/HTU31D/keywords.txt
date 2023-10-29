@@ -1,0 +1,57 @@
+#######################################
+# Syntax Coloring Map For HTU31D
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+HTU31D	KEYWORD1
+DiagnosticInfo	KEYWORD1
+THData	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin	KEYWORD2
+reset	KEYWORD2
+initMeasurement	KEYWORD2
+enableHeater	KEYWORD2
+disableHeater	KEYWORD2
+readTemperature	KEYWORD2
+readHumidity	KEYWORD2
+readSerial	KEYWORD2
+readDiagnosticRegister	KEYWORD2
+readTempAndHumidity	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+HTU31D_DEFAULT_I2CADDR	LITERAL1
+NVM_ERROR_BIT	LITERAL1
+HUMIDITY_OVERRUN_BIT	LITERAL1
+HUMIDITY_HIGH_ERROR_BIT	LITERAL1
+HUMIDITY_LOW_ERROR_BIT	LITERAL1
+TEMP_OVERRUN_BIT	LITERAL1
+TEMP_HIGH_ERROR_BIT	LITERAL1
+TEMP_LOW_ERROR_BIT	LITERAL1
+HEATER_ON_BIT	LITERAL1
+
+#######################################
+# Defines (LITERAL2)
+#######################################
+
+BASE_CONVERSION	LITERAL2
+HUMIDITY_OSR_3	LITERAL2
+HUMIDITY_OSR_2	LITERAL2
+HUMIDITY_OSR_1	LITERAL2
+HUMIDITY_OSR_0	LITERAL2
+TEMPERATURE_OSR_3	LITERAL2
+TEMPERATURE_OSR_2	LITERAL2
+TEMPERATURE_OSR_1	LITERAL2
+TEMPERATURE_OSR_0	LITERAL2
+OSRRH_BITS	LITERAL2
+OSRT_BITS	LITERAL2
+
