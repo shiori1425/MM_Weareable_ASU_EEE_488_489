@@ -7,7 +7,7 @@
 #include "DisplayControl.h"
 #include <CST816_TouchLib.h>
 
-//#define DEBUG_ENABLED
+#define DEBUG_ENABLED
 
 /* Configure additional IO*/
 bool button_pressed = false;
@@ -35,6 +35,7 @@ void setup() {
 
   initMCU();
   initializeTempSensors();
+  initialize5933();
   
   delay(1);
 
@@ -48,20 +49,24 @@ void loop() {
   button2.tick();
   oTouch.control();
 
-  if (oTouch.hadTouch() || oTouch.hadGesture()) {
+  if (oTouch.hadGesture() || oTouch.hadTouch()  ) {
       currTouch = getTouch();
       delay(10);
-      if (currTouch.gestureEvent) {
-          #ifdef DEBUG_ENABLED
-              Serial.println("Handling gestures");
-          #endif
+      switch (currTouch.gesture) {
+        case CST816Touch::GESTURE_LEFT:
+        case CST816Touch::GESTURE_RIGHT:
+        case CST816Touch::GESTURE_TOUCH_BUTTON:
+          // Swap faces with specific gestures
           handleGestures(&currentFace, &currTouch);
-      } else {
+          break;
+        default:
           #ifdef DEBUG_ENABLED
-              Serial.println("Handling touch coordinates");
+            Serial.println("Handling touch coordinates");
           #endif
+          // handle face specific touches if anything else
           handleTouchForState(&currentFace, &currTouch, &spr);
-      }        
+      }
+     
   }
 
   updateDisplay(&currentFace, &spr);
@@ -93,10 +98,11 @@ void initMCU(){
   loadMenuSettings();
   initializeTFT();
   tft.drawString("Initializing...",5,5);
-  
+  int retry = 0;
+  const int retry_count = 10;
   // Connect to WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED && ++retry < retry_count) {
     delay(1000);
     tft.drawString("Connecting to WiFi...",5,25);
     Serial.println("Connecting to WiFi...");

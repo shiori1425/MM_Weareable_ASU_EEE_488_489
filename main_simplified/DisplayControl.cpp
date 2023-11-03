@@ -3,9 +3,18 @@
 #include "DisplayControl.h"
 
 //#define DEBUG_ENABLED
+//#define DEBUG_ENABLED_FACE
+#define DEBUG_ENABLED_TOUCH
 
 #define PIXEL_HEIGHT 170
 #define PIXEL_WIDTH 320
+
+// Menu definitions
+const int MENU_ITEM_WIDTH = PIXEL_WIDTH - 30;  // Some margin on the sides
+const int ARROW_SIZE = 22;  // Size of the up and down arrows
+const int MENU_ITEM_HEIGHT = (PIXEL_HEIGHT - 2*ARROW_SIZE) / 4;  // 4 items, minus space for arrows
+const int SCROLLBAR_WIDTH = 10;  // Width of the scrollbar
+int menuOffset = 0;  // Which item is at the top
 
 uint16_t _textColor;
 uint16_t _bgColor;
@@ -13,6 +22,36 @@ uint16_t _fgColor;
 bool _printDigital;
 bool _temp_c;
 long _UTC_OFF;
+float _height;
+float _weight;
+
+struct MenuItem {
+    const char* name;
+    enum { COLOR, BOOLEAN, INTEGER } type;
+    void (*callback)();
+    void* value;
+};
+
+void adjustTextColor();
+void adjustBgColor();
+void adjustFgColor();
+void adjustUTCOffset();
+void toggleTempUnit();
+void toggleDigitalDisplay();
+void adjustHeight();
+void adjustWeight();
+void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite);
+
+MenuItem menuItems[] = {
+    {"Text Color",    MenuItem::COLOR,    adjustTextColor,       &_textColor},
+    {"BG Color",      MenuItem::COLOR,    adjustBgColor,         &_bgColor},
+    {"FG Color",      MenuItem::COLOR,    adjustFgColor,         &_fgColor},
+    {"Print Digital", MenuItem::BOOLEAN,  toggleDigitalDisplay,  &_printDigital},
+    {"Temp in C",     MenuItem::BOOLEAN,  toggleTempUnit,        &_temp_c},
+    {"UTC Offset",    MenuItem::INTEGER,  adjustUTCOffset,       &_UTC_OFF},
+    {"Height (in)",   MenuItem::INTEGER,  adjustHeight,          &_height},
+    {"Weight (lbs)",  MenuItem::INTEGER,  adjustWeight,          &_weight}
+};
 
 
 int32_t width, height, left_center, right_center;
@@ -37,26 +76,34 @@ touchEvent getTouch() {
     touchEvent result;
     result.x = -1;
     result.y = -1;
-    result.gesture = CST816Touch::GESTURE_NONE; 
     result.gestureEvent = oTouch.hadGesture();
+    result.gesture = CST816Touch::GESTURE_NONE; 
 
     bool printTouchDebug = true;
-
-    if (oTouch.hadTouch()) {
-      oTouch.getLastTouchPosition(result.x,result.y);
-      result.y = tft.height() - result.y; // Flip y axis on touch to align with screen rotation
-    } else if (result.gestureEvent) {
-        oTouch.getLastGesture(result.gesture, result.x, result.y);
-        result.y = tft.height() - result.y; // Flip y axis on touch to align with screen rotation
-        if(printTouchDebug){
-          Serial.println("- - - - - - - - - - - - - - - - ");
-          Serial.println("Gesture Event:");
-          Serial.print("Motion: ");
-          Serial.println(oTouch.gestureIdToString(result.gesture));
-          Serial.print("At location: ");
-          Serial.printf("x: %d, y: %d \n", result.x, result.y);
-        }
+    
+    if (oTouch.hadGesture()){
+      #ifdef DEBUG_ENABLED_TOUCH
+          Serial.println("getTouch: Had Gesture");
+      #endif
+      oTouch.getLastGesture(result.gesture, result.x, result.y);
+    } else{
+      #ifdef DEBUG_ENABLED_TOUCH
+          Serial.println("getTouch: Had Touch");
+      #endif
+      oTouch.getLastTouchPosition(result.x, result.y);
+      result.gesture = CST816Touch::GESTURE_NONE; 
     }
+
+    result.y = tft.height() - result.y; // Flip y axis on touch to align with screen rotation
+        
+    #ifdef DEBUG_ENABLED_TOUCH
+      Serial.println("- - - - - - - - - - - - - - - - ");
+      Serial.println("Gesture Event:");
+      Serial.print("Motion: ");
+      Serial.println(oTouch.gestureIdToString(result.gesture));
+      Serial.print("At location: ");
+      Serial.printf("x: %d, y: %d \n", result.x, result.y);
+    #endif
     return result;
 }
 
@@ -86,6 +133,7 @@ void initializeTFT() {
   oTouch.resetChip(true);
   tft.drawString("Initializing..",5,5);
   oTouch.setAutoSleep(false);
+  oTouch.setOperatingModeHardwareBased();
 }
 
 void resetDisplay(){
@@ -234,11 +282,11 @@ void printRightHalfDate(TFT_eSprite* sprite){
     // Print Date
     // Format the time to hh:mm:ss
     const int DATE_SIZE = 3; // Adjust this as per your desired size
-    const int DATE_X_POS = 185; // Starting X position. Adjust to move horizontally.
+    const int DATE_X_POS = 175; // Starting X position. Adjust to move horizontally.
     const int DATE_Y_POS = 45; // Starting Y position. Adjust to move vertically.
 
     char monthStr[10];
-    char weekdayStr[9];
+    char weekdayStr[10];
     char dateStr[9];
 
     // Weekdays array (Sunday = 1)
@@ -267,7 +315,7 @@ void printRightHalfDate(TFT_eSprite* sprite){
     sprite->println(dateStr);
 }
 
-void printMenuLayout(TFT_eSprite* sprite){
+void printMenuLayout_old(TFT_eSprite* sprite){
 
   // Due to sprites not respecting TFT rotation, we swap X and Y coordinates 
         // to manually rotate the design 90 degrees on the sprite
@@ -309,6 +357,54 @@ void printMenuLayout(TFT_eSprite* sprite){
   // New Menu Line Item
   LINE_NUM++;
   sprite->drawString("Digital",MENU_TXT_Y, MENU_TXT_X + MENU_NL_SPACE * LINE_NUM + 5);
+}
+void printMenuLayout(TFT_eSprite* sprite){
+    sprite->fillSprite(_bgColor);
+    
+    // Draw the up arrow (this can be replaced with a graphic later if needed)
+    sprite->fillTriangle(
+        PIXEL_WIDTH/2, 0,
+        PIXEL_WIDTH/2 - ARROW_SIZE/2, ARROW_SIZE,
+        PIXEL_WIDTH/2 + ARROW_SIZE/2, ARROW_SIZE,
+        _fgColor);
+        
+    // Draw the down arrow
+    sprite->fillTriangle(
+        PIXEL_WIDTH/2, PIXEL_HEIGHT,
+        PIXEL_WIDTH/2 - ARROW_SIZE/2, PIXEL_HEIGHT - ARROW_SIZE,
+        PIXEL_WIDTH/2 + ARROW_SIZE/2, PIXEL_HEIGHT - ARROW_SIZE,
+        _fgColor);
+        
+    // Draw the scrollbar (for now, static on the side; we'll make it dynamic later)
+    sprite->fillRect(PIXEL_WIDTH - SCROLLBAR_WIDTH, ARROW_SIZE, SCROLLBAR_WIDTH, PIXEL_HEIGHT - 2*ARROW_SIZE, TFT_DARKGREY);
+    
+    // Draw visible menu items
+    for(int i = 0; i < 4; i++) {
+        int y = ARROW_SIZE + i * MENU_ITEM_HEIGHT;
+        sprite->drawRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _fgColor);
+
+        if (i + menuOffset < sizeof(menuItems) / sizeof(menuItems[0])) {
+            MenuItem& item = menuItems[i + menuOffset];
+
+            // Display the item name
+            sprite->setTextSize(3);
+            sprite->setTextColor(_fgColor);
+            sprite->drawString(item.name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+            
+            // Depending on type, display the value on the right side
+            switch (item.type) {
+                case MenuItem::COLOR:
+                    sprite->fillRect(PIXEL_WIDTH - 50, y, 40, MENU_ITEM_HEIGHT, *(uint16_t*)(item.value));
+                    break;
+                case MenuItem::BOOLEAN:
+                    sprite->drawString(*(bool*)(item.value) ? "YES" : "NO", PIXEL_WIDTH - 60, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+                    break;
+                case MenuItem::INTEGER:
+                    sprite->drawString(String(*(int*)(item.value)), PIXEL_WIDTH - 60, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+                    break;
+            }
+        }
+    }
 }
 
 void printRawData(TFT_eSprite* sprite){
@@ -404,7 +500,7 @@ void updateBatterySprite(TFT_eSprite* sprite){
 }
 
 void updateDisplay(FaceType* currentFace, TFT_eSprite* sprite){
-  #ifdef DEBUG_ENABLED
+  #ifdef DEBUG_ENABLED_FACE
     Serial.print("Update: Calling update display for state ");
     Serial.println(static_cast<int>(*currentFace));
   #endif
@@ -437,7 +533,7 @@ void updateDisplay(FaceType* currentFace, TFT_eSprite* sprite){
 **********************************************************************************************/
 
 void updateClockDisplay(TFT_eSprite* sprite) {
-  #ifdef DEBUG_ENABLED
+  #ifdef DEBUG_ENABLED_FACE
     Serial.println("Update: Printing Clock Display");
   #endif
     // Update the sprite to reflect the Clock face
@@ -451,7 +547,7 @@ void updateClockDisplay(TFT_eSprite* sprite) {
 
 void updateRawDataDisplay(TFT_eSprite* sprite) {
     // Update the sprite to reflect the Raw Data face
-  #ifdef DEBUG_ENABLED
+  #ifdef DEBUG_ENABLED_FACE
     Serial.println("Update: Printing Raw Data Display");
   #endif
   printRawData(sprite);
@@ -459,14 +555,14 @@ void updateRawDataDisplay(TFT_eSprite* sprite) {
 
 void updateSweatRateDisplay(TFT_eSprite* sprite) {
     // Update the sprite to reflect the Sweat Rate face  
-  #ifdef DEBUG_ENABLED
+  #ifdef DEBUG_ENABLED_FACE
     Serial.println("Update: Printing Sweat Rate Display");
   #endif
   printSweatRate(sprite);
 }
 
 void updateMenuDisplay(TFT_eSprite* sprite) {
-  #ifdef DEBUG_ENABLED
+  #ifdef DEBUG_ENABLED_FACE
     Serial.println("Update: Printing Menu Display");
   #endif
   printMenuLayout(sprite);
@@ -501,11 +597,7 @@ void handleTouchForClockDisplay(touchEvent* touch, TFT_eSprite* sprite) {
 
 }
 
-/**********************************************************************************************
-*
-*
-*
-**********************************************************************************************/
+
 void handleTouchForRawDataDisplay(touchEvent* touch, TFT_eSprite* sprite) {
     // Handle touch events specific to the Raw Data Display
 
@@ -517,9 +609,132 @@ void handleTouchForSweatRateDisplay(touchEvent* touch, TFT_eSprite* sprite) {
 }
 
 void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite) {
-    // Handle touch events specific to the Menu display
 
+    int totalMenuItems = sizeof(menuItems) / sizeof(menuItems[0]);
+
+    Serial.println("Handling touch event...");
+
+    switch (touch->gesture) {
+        case CST816Touch::GESTURE_UP:
+            Serial.println("Detected GESTURE_UP");
+            menuOffset = (menuOffset < totalMenuItems - 4) ? menuOffset + 1 : totalMenuItems - 4;
+            break;
+        case CST816Touch::GESTURE_DOWN:
+            Serial.println("Detected GESTURE_DOWN");
+            menuOffset = (menuOffset > 0) ? menuOffset - 1 : 0;
+            break;
+        default:
+            Serial.println("Detected Point Touch");
+            if (touch->y <= ARROW_SIZE) {
+                Serial.println("Touch on Up arrow area");
+                menuOffset = (menuOffset > 0) ? menuOffset - 1 : 0;
+            } else if (touch->y >= PIXEL_HEIGHT - ARROW_SIZE) {
+                Serial.println("Touch on Down arrow area");
+                menuOffset = (menuOffset < totalMenuItems - 4) ? menuOffset + 1 : totalMenuItems - 4;
+            } else {
+                Serial.println("Touch inside menu area");
+                // Determine which menu item was touched based on the Y position and the menuOffset
+                int menuItemTouched = menuOffset + (touch->y - ARROW_SIZE) / MENU_ITEM_HEIGHT;
+                Serial.printf("Touched menu item index: %d\n", menuItemTouched);
+                if (menuItemTouched >= 0 && menuItemTouched < totalMenuItems) {
+                    // Call the corresponding callback for the touched menu item
+                    Serial.printf("Calling callback for menu item: %s\n", menuItems[menuItemTouched].name);
+                    menuItems[menuItemTouched].callback();
+                    
+                    // Given the type of value, cast and dereference it
+                    uint16_t valueToShow;  // This will hold the value to be displayed
+                    switch(menuItems[menuItemTouched].type) {
+                        case MenuItem::COLOR:
+                            valueToShow = *(uint16_t*)menuItems[menuItemTouched].value;
+                            break;
+                        case MenuItem::BOOLEAN:
+                            valueToShow = *(bool*)menuItems[menuItemTouched].value ? 1 : 0;
+                            break;
+                        case MenuItem::INTEGER:
+                            if (menuItems[menuItemTouched].name == "UTC Offset") {
+                                valueToShow = (uint16_t)*(long*)menuItems[menuItemTouched].value;
+                            } else {  // For float values like height and weight, you might want to handle differently
+                                valueToShow = (uint16_t)*(float*)menuItems[menuItemTouched].value;
+                            }
+                            break;
+                    }
+                    refreshMenuItem(menuItemTouched, valueToShow, sprite);
+                } else {
+                    Serial.println("Touched menu item out of bounds");
+                }
+            }
+    }
+    printMenuLayout(sprite);
 }
+
+
+
+void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite) {
+    // Calculate the y-coordinate based on the index
+    int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
+    
+    // Redraw the menu item with the new value at its location
+    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _bgColor);  // Clear previous value
+    sprite->setTextSize(3);
+    sprite->setTextColor(_fgColor);
+    sprite->drawString(menuItems[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+    sprite->drawString(String(value), PIXEL_WIDTH - 50, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); // Adjust position as needed
+}
+
+
+/**********************************************************************************************
+*                                           Menu Actions
+*
+*
+**********************************************************************************************/
+
+void adjustTextColor() {
+    _textColor = pgm_read_word(&default_4bit_palette[(_textColor + 1) % 16]);
+}
+
+void adjustBgColor() {
+    _bgColor = pgm_read_word(&default_4bit_palette[(_bgColor + 1) % 16]);
+}
+
+void adjustFgColor() {
+    _fgColor = pgm_read_word(&default_4bit_palette[(_fgColor + 1) % 16]);
+}
+
+void adjustUTCOffset() {
+    _UTC_OFF = (_UTC_OFF + 1) % 25;  // Assuming offset is between -12 to +12
+    if (_UTC_OFF > 12) {
+        _UTC_OFF -= 25;  // This will give values from -12 to +12
+    }
+}
+
+void toggleTempUnit() {
+    _temp_c = !_temp_c;
+}
+
+void toggleDigitalDisplay() {
+    _printDigital = !_printDigital;
+}
+
+void adjustHeight() {
+    _height += 1;  // Increment by one, you can adjust as needed
+    if (_height > 96) { // Assuming maximum height is 8 feet or 96 inches
+        _height = 48;
+    }
+}
+
+void adjustWeight() {
+    _weight += 1;  // Increment by one, you can adjust as needed
+    if (_weight > 300) { // Assuming a maximum weight of 300 lbs for this example
+        _weight = 80;
+    }
+}
+
+
+/**********************************************************************************************
+*
+*
+*
+**********************************************************************************************/
 
 void loadMenuSettings(){
     // Placeholder code: replace with logic to load from flash
@@ -529,4 +744,7 @@ void loadMenuSettings(){
     _printDigital = false;
     _temp_c = false;
     _UTC_OFF = -4;  
+    _height = 6*12;
+    _weight = 155;
+
 }

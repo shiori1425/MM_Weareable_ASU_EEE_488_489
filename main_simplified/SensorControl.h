@@ -19,6 +19,7 @@ extern float sweatRate;
 
 void initSensors();
 void initializeTempSensors();
+void initialize5933();
 void printDiagnosticInfo(HTU31D* sensorInstance); 
 
 void logSensorDataToNVM();
@@ -27,5 +28,6 @@ HTU31D::THData readSensors(HTU31D* sensorInstance);
 void readSkinRes(float* skinRes);
 void calcSweatRate(float* sweatRate);
 void updateSensors();
+void frequencySweepRaw(float* res);
 
 #endif  // SENSORCONTROL_H
