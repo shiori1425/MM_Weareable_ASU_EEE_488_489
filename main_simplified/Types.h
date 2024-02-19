@@ -10,6 +10,8 @@ enum class FaceType {
     RawData,
     SweatRate,
     Menu,
+    Alert_Temperature, 
+    Alert_Sweat_Rate
 };
 
 enum FaceState {

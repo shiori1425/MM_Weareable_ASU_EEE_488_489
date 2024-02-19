@@ -9,6 +9,7 @@
 #include "bat_power.h"
 #include "SensorControl.h"
 
+
 // External vars
 extern FaceType prevFace;
 extern FaceType nextFace;
@@ -34,6 +35,8 @@ void printMenu();
 void printRawData(TFT_eSprite* sprite);
 void printSweatRate(TFT_eSprite* sprite);
 void printRightHalfDate(TFT_eSprite* sprite);
+void printAlertTemperature(TFT_eSprite* sprite);
+void printAlertSweatRate(TFT_eSprite* sprite);
 void updateBatterySprite(); 
 
 // 
@@ -42,6 +45,8 @@ void updateClockDisplay(TFT_eSprite* sprite);
 void updateRawDataDisplay(TFT_eSprite* sprite);
 void updateSweatRateDisplay(TFT_eSprite* sprite);
 void updateMenuDisplay(TFT_eSprite* sprite);
+void updateAlertTemperatureDisplay(TFT_eSprite* sprite);
+void updateAlertSweatRateDisplay(TFT_eSprite* sprite);
 
 //
 void handleTouchForState(FaceType* currentFace, touchEvent* touch, TFT_eSprite* sprite);
@@ -52,4 +57,5 @@ void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite);
 
 //
 void loadMenuSettings();
+void writeMenuSettings();
 #endif  // DISPLAYCONTROL_H

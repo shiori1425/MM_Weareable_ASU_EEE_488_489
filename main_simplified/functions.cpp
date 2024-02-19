@@ -36,6 +36,10 @@ float change_to_f(float temp_c){
   return (temp_c * 9.0/5.0) + 32.0;
 }
 
+float change_to_C(float temp_f){
+  return (temp_f - 32.0) * 5.0/9.0;
+}
+
 void initIO(){
   #ifdef DEBUG_ENABLED
       Serial.println("Initializing IO");
@@ -108,4 +112,44 @@ void initializeNTP() {
   #ifdef DEBUG_ENABLED
       Serial.println("NTP initialization completed.");
   #endif
+}
+
+
+double calculateHeatIndex(double temp, double humidity) {
+    // convert Celsius to Fahrenheit
+    temp = temp * 9 / 5 + 32; 
+
+    double heatIndex;
+    
+    // Use the simple formula for low heat indices
+    if (temp < 80) {
+        heatIndex = 0.5 * (temp + 61.0 + ((temp - 68.0) * 1.2) + (humidity * 0.094));
+    } else {
+        // Rothfusz regression
+        heatIndex = -42.379 + 2.04901523 * temp + 10.14333127 * humidity
+                    - 0.22475541 * temp * humidity - 0.00683783 * temp * temp
+                    - 0.05481717 * humidity * humidity + 0.00122874 * temp * temp * humidity
+                    + 0.00085282 * temp * humidity * humidity - 0.00000199 * temp * temp * humidity * humidity;
+
+        // Adjustments
+        if ((humidity < 13) && (temp >= 80.0) && (temp <= 112.0)) {
+            double adjustment = ((13.0 - humidity) / 4.0) * sqrt((17.0 - abs(temp - 95.0)) / 17.0);
+            heatIndex -= adjustment;
+        } else if ((humidity > 85.0) && (temp >= 80.0) && (temp <= 87.0)) {
+            double adjustment = ((humidity - 85.0) / 10.0) * ((87.0 - temp) / 5.0);
+            heatIndex += adjustment;
+        }
+    }
+
+    return heatIndex;
+}
+
+float readBatteryVoltage(){
+  esp_adc_cal_characteristics_t adc_chars;
+
+  // Get the internal calibration value of the chip
+  esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+  uint32_t raw = analogRead(PIN_BAT_VOLT);
+  uint32_t v1 = esp_adc_cal_raw_to_voltage(raw, &adc_chars) * 2; 
+  return v1;
 }

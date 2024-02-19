@@ -8,6 +8,8 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <math.h>
+#include <esp_adc_cal.h>
+
 
 extern "C" {
   #include "lwip/apps/sntp.h"
@@ -20,9 +22,11 @@ void debugPrint(const char* message);
 
 const char* formatResistance(float resistance, char* buffer) ;
 float change_to_f(float temp_c);
+float change_to_C(float temp_f);
 void initIO();
 void initializeNTP();
-
+double calculateHeatIndex(double temp, double humidity);
+float readBatteryVoltage();
 
 
 

@@ -2,7 +2,8 @@
 #include "DummyTouchSubscriber.h"
 #include "DisplayControl.h"
 
-//#define DEBUG_ENABLED
+
+#define DEBUG_ENABLED
 //#define DEBUG_ENABLED_FACE
 #define DEBUG_ENABLED_TOUCH
 
@@ -15,19 +16,27 @@ const int ARROW_SIZE = 22;  // Size of the up and down arrows
 const int MENU_ITEM_HEIGHT = (PIXEL_HEIGHT - 2*ARROW_SIZE) / 4;  // 4 items, minus space for arrows
 const int SCROLLBAR_WIDTH = 10;  // Width of the scrollbar
 int menuOffset = 0;  // Which item is at the top
+int UTC_MAX_OFFSET = 13;  // This will give UTC values from -6 to +6
 
+//Preferences preferences;
+
+int _textColorIndex = 0;
 uint16_t _textColor;
+int _bgColorIndex = 0;
 uint16_t _bgColor;
+int _fgColorIndex = 0;
 uint16_t _fgColor;
 bool _printDigital;
 bool _temp_c;
 long _UTC_OFF;
 float _height;
 float _weight;
+uint16_t _heatIndexColor;
+const char* _calExec = "Execute";
 
 struct MenuItem {
     const char* name;
-    enum { COLOR, BOOLEAN, INTEGER } type;
+    enum { COLOR, BOOLEAN, INTEGER, FLOAT, STRING } type;
     void (*callback)();
     void* value;
 };
@@ -40,17 +49,20 @@ void toggleTempUnit();
 void toggleDigitalDisplay();
 void adjustHeight();
 void adjustWeight();
+void calAD5933();
 void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite);
 
 MenuItem menuItems[] = {
+    //{"Label",    MenuItem::xxxx,    callback,       value}
     {"Text Color",    MenuItem::COLOR,    adjustTextColor,       &_textColor},
     {"BG Color",      MenuItem::COLOR,    adjustBgColor,         &_bgColor},
     {"FG Color",      MenuItem::COLOR,    adjustFgColor,         &_fgColor},
     {"Print Digital", MenuItem::BOOLEAN,  toggleDigitalDisplay,  &_printDigital},
     {"Temp in C",     MenuItem::BOOLEAN,  toggleTempUnit,        &_temp_c},
     {"UTC Offset",    MenuItem::INTEGER,  adjustUTCOffset,       &_UTC_OFF},
-    {"Height (in)",   MenuItem::INTEGER,  adjustHeight,          &_height},
-    {"Weight (lbs)",  MenuItem::INTEGER,  adjustWeight,          &_weight}
+    {"Height (in)",   MenuItem::FLOAT,    adjustHeight,          &_height},
+    {"Weight (lbs)",  MenuItem::FLOAT,    adjustWeight,          &_weight},
+    {"Cal AD5933",    MenuItem::STRING,   calAD5933,             &_calExec}
 };
 
 
@@ -163,6 +175,7 @@ void handleGestures(FaceType *currentFace, touchEvent *currTouch) {
             case CST816Touch::GESTURE_TOUCH_BUTTON:
                 *currentFace = prevFace;
                 isMenu = false;
+                writeMenuSettings();
                 break;
         }
     } else {
@@ -282,7 +295,7 @@ void printRightHalfDate(TFT_eSprite* sprite){
     // Print Date
     // Format the time to hh:mm:ss
     const int DATE_SIZE = 3; // Adjust this as per your desired size
-    const int DATE_X_POS = 175; // Starting X position. Adjust to move horizontally.
+    const int DATE_X_POS = 170; // Starting X position. Adjust to move horizontally.
     const int DATE_Y_POS = 45; // Starting Y position. Adjust to move vertically.
 
     char monthStr[10];
@@ -315,65 +328,22 @@ void printRightHalfDate(TFT_eSprite* sprite){
     sprite->println(dateStr);
 }
 
-void printMenuLayout_old(TFT_eSprite* sprite){
-
-  // Due to sprites not respecting TFT rotation, we swap X and Y coordinates 
-        // to manually rotate the design 90 degrees on the sprite
-  int MENU_X = 5;
-  int MENU_Y = 5;
-  int MENU_HEIGHT = 300;
-  int MENU_WIDTH = 150;
-  int MENU_TXT_X = MENU_X + 5;
-  int MENU_TXT_Y = MENU_X + 5;
-  int MENU_NL_SPACE = sprite->fontHeight() + 10;
-  int LINE_NUM = 0;
-  int LINE_WEIGHT = 3;
-  sprite->fillSprite(_fgColor);
-
-  // Set Menu Text Settings
-  sprite->setTextSize(2);
-  sprite->setTextColor(_bgColor);
-
-  // New Menu Line Item
-  const char* menu_item_1 = "Text Color";
-  sprite->drawString(menu_item_1,MENU_TXT_Y, MENU_TXT_X); 
-  
-  // New Menu Line Item
-  LINE_NUM++;
-  sprite->drawString("BG Color",MENU_TXT_Y, MENU_TXT_X + MENU_NL_SPACE * LINE_NUM + 5 ); 
-
-  // New Menu Line Item
-  LINE_NUM++;
-  sprite->drawString("FG Color",MENU_TXT_Y, MENU_TXT_X + MENU_NL_SPACE * LINE_NUM + 5);
-
-  // New Menu Line Item
-  LINE_NUM++;
-  sprite->drawString("UTC Offset",MENU_TXT_Y, MENU_TXT_X + MENU_NL_SPACE * LINE_NUM + 5);
-
-  // New Menu Line Item
-  LINE_NUM++;
-  sprite->drawString("Temp Unit",MENU_TXT_Y, MENU_TXT_X + MENU_NL_SPACE * LINE_NUM + 5);
-
-  // New Menu Line Item
-  LINE_NUM++;
-  sprite->drawString("Digital",MENU_TXT_Y, MENU_TXT_X + MENU_NL_SPACE * LINE_NUM + 5);
-}
 void printMenuLayout(TFT_eSprite* sprite){
-    sprite->fillSprite(_bgColor);
+    sprite->fillSprite(TFT_LIGHTGREY);
     
     // Draw the up arrow (this can be replaced with a graphic later if needed)
     sprite->fillTriangle(
         PIXEL_WIDTH/2, 0,
         PIXEL_WIDTH/2 - ARROW_SIZE/2, ARROW_SIZE,
         PIXEL_WIDTH/2 + ARROW_SIZE/2, ARROW_SIZE,
-        _fgColor);
+        TFT_BLACK);
         
     // Draw the down arrow
     sprite->fillTriangle(
         PIXEL_WIDTH/2, PIXEL_HEIGHT,
         PIXEL_WIDTH/2 - ARROW_SIZE/2, PIXEL_HEIGHT - ARROW_SIZE,
         PIXEL_WIDTH/2 + ARROW_SIZE/2, PIXEL_HEIGHT - ARROW_SIZE,
-        _fgColor);
+        TFT_BLACK);
         
     // Draw the scrollbar (for now, static on the side; we'll make it dynamic later)
     sprite->fillRect(PIXEL_WIDTH - SCROLLBAR_WIDTH, ARROW_SIZE, SCROLLBAR_WIDTH, PIXEL_HEIGHT - 2*ARROW_SIZE, TFT_DARKGREY);
@@ -381,14 +351,14 @@ void printMenuLayout(TFT_eSprite* sprite){
     // Draw visible menu items
     for(int i = 0; i < 4; i++) {
         int y = ARROW_SIZE + i * MENU_ITEM_HEIGHT;
-        sprite->drawRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _fgColor);
+        sprite->drawRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, TFT_BLACK);
 
         if (i + menuOffset < sizeof(menuItems) / sizeof(menuItems[0])) {
             MenuItem& item = menuItems[i + menuOffset];
 
             // Display the item name
             sprite->setTextSize(3);
-            sprite->setTextColor(_fgColor);
+            sprite->setTextColor(TFT_BLACK);
             sprite->drawString(item.name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
             
             // Depending on type, display the value on the right side
@@ -397,10 +367,13 @@ void printMenuLayout(TFT_eSprite* sprite){
                     sprite->fillRect(PIXEL_WIDTH - 50, y, 40, MENU_ITEM_HEIGHT, *(uint16_t*)(item.value));
                     break;
                 case MenuItem::BOOLEAN:
-                    sprite->drawString(*(bool*)(item.value) ? "YES" : "NO", PIXEL_WIDTH - 60, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+                    sprite->drawString(*(bool*)(item.value) ? "YES" : "NO", PIXEL_WIDTH - 73, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
                     break;
                 case MenuItem::INTEGER:
-                    sprite->drawString(String(*(int*)(item.value)), PIXEL_WIDTH - 60, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+                    sprite->drawString(String(*(int*)(item.value)), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+                    break;
+                case MenuItem::FLOAT:
+                    sprite->drawString(String(*(float*)(item.value)), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
                     break;
             }
         }
@@ -459,17 +432,94 @@ void printRawData(TFT_eSprite* sprite){
 }
 
 void printSweatRate(TFT_eSprite* sprite) {
+    //Get updated raw data values
+    updateSensors();
 
     // call Update Sweat Rate before printing it
-    calcSweatRate(&sweatRate);
+    // 2.8 is the watts value of 2400 cals/hr metobolic rate
+    calcSweatRate(&sweatRate, _height, _weight, 2.8);
+    double heat_index = calculateHeatIndex(sensorData_ambi.temperature,sensorData_ambi.humidity); 
+
+    Serial.println("Heat Index");
+    Serial.println(heat_index);
+
+    if (heat_index > 126) {
+        _heatIndexColor = TFT_RED;
+    } else if (heat_index > 103) {
+        _heatIndexColor = 0xFDA0;
+    } else if (heat_index > 91) {
+        _heatIndexColor = 0xFEC0;
+    } else if (heat_index > 80) {
+        _heatIndexColor = 0xFFE0;
+    } else {
+        _heatIndexColor = TFT_GREEN;
+    }
+
+    sprite->setTextSize(3);
+    sprite->setTextColor(_textColor);
+    sprite->setCursor(20, 30);
+    sprite->println("Heat Index:");
+    sprite->setTextColor(_heatIndexColor);
+    sprite->setCursor(20, 60);
+    if (_temp_c){
+      sprite->print(change_to_C(heat_index));
+      sprite->println(" C");
+    } else {
+      sprite->print(heat_index);
+      sprite->println(" F");
+    }
+  
+    // Convert sweatRate to a string with 2 decimal places
+    char sweatRateStr[15]; 
+    dtostrf(sweatRate, 0, 2, sweatRateStr);
+    strcat(sweatRateStr, " mL/min");
+
+    Serial.println("Sweat Rate");
+    Serial.println(sweatRateStr);
+
+    sprite->setTextSize(3);
+    sprite->setTextColor(_textColor);
+    sprite->setCursor(20, 90);
+    sprite->println("Sweat Rate:");
+    sprite->setCursor(20, 120);
+    sprite->println(sweatRateStr); 
+}
+
+void printAlertTemperature(TFT_eSprite* sprite){
+
+    //Get updated raw data values
+    updateSensors();
 
     //sprite->pushToSprite(&spr_base, 0, 0);
     sprite->setTextSize(4);
-    sprite->setTextColor(_textColor);
-    sprite->setCursor(20, 30); // Centering might need adjusting
-    sprite->println("Sweat Rate:");
-    sprite->setCursor(20, 80); // Centering might need adjusting
-    sprite->printf("%d mL/min", sweatRate); // Placeholder value
+    sprite->setTextColor(TFT_RED);    // Red
+    sprite->setCursor(20, 30); 
+    sprite->println("WARNING High Temp:");
+    sprite->setCursor(20, 80); 
+    if (_temp_c){
+    sprite->print(sensorData_ambi.temperature);
+    sprite->println(" C!");
+    } else {
+    sprite->print(change_to_f(sensorData_ambi.temperature));
+    sprite->println(" F!");
+    }
+}
+
+void printAlertSweatRate(TFT_eSprite* sprite){
+
+    //Get updated raw data values
+    updateSensors();
+
+    // call Update Sweat Rate before printing it
+    calcSweatRate(&sweatRate, _height, _weight, 170);
+
+    //sprite->pushToSprite(&spr_base, 0, 0);
+    sprite->setTextSize(4);
+    sprite->setTextColor(TFT_RED);  // Red
+    sprite->setCursor(20, 30); 
+    sprite->println("WARNING HIGH SWEAT RATE:");
+    sprite->setCursor(20, 80); 
+    sprite->printf("%d mL/min!", &sweatRate); 
 }
 
 /**********************************************************************************************
@@ -478,24 +528,34 @@ void printSweatRate(TFT_eSprite* sprite) {
 *
 **********************************************************************************************/
 void updateBatterySprite(TFT_eSprite* sprite){
-  float bat_volt = (analogRead(PIN_BAT_VOLT) / 1023.0) * 3.6;
-  //bat_volt = 3.2;
+
+  float bat_volt_mV = readBatteryVoltage();
+  float bat_volt = bat_volt_mV/1000;
+ 
   uint16_t* iconData;
-  //sprite->fillRect(295,0,25,10,TFT_WHITE);
 
   if (bat_volt >= 3.6) {
     iconData = (uint16_t*)gImage_Full_Battery; 
-    //sprite->fillRect(295,0,25,10,TFT_GREEN);
   } else if (bat_volt >= 3.4) {  // (3.6 + 3.2) / 2 = 3.4
-    iconData = (uint16_t*)gImage_Battery_2;
-    //sprite->fillRect(295,0,25,10,TFT_GREENYELLOW);  
+    iconData = (uint16_t*)gImage_Battery_2; 
   } else if (bat_volt >= 3.0) {  // (3.2 + 2.8) / 2 = 3.0
     iconData = (uint16_t*)gImage_Battery_1;
-    //sprite->fillRect(295,0,25,10,TFT_ORANGE);  
   } else {
     iconData = (uint16_t*)gImage_Battery_0;
-    //sprite->fillRect(295,0,25,10,0xFE19); 
   }  
+
+  
+
+  if (false){
+    // Print Batery voltage in mV
+    sprite->fillRect(0, 0, 60, 10, _bgColor);
+    char bat[10];
+    snprintf(bat, sizeof(bat), "%.0fmV", bat_volt_mV); 
+    sprite->setTextSize(2);
+    sprite->setTextColor(_textColor, _bgColor); 
+    sprite->drawString(bat, 0, 0);
+  }
+  
   sprite->pushImage(295,0,25,10,iconData);
 }
 
@@ -518,6 +578,12 @@ void updateDisplay(FaceType* currentFace, TFT_eSprite* sprite){
         case FaceType::Menu:
             updateMenuDisplay(sprite);
             break;
+        case FaceType::Alert_Temperature:
+            updateAlertTemperatureDisplay(sprite);
+            break;
+        case FaceType::Alert_Sweat_Rate:
+            updateAlertSweatRateDisplay(sprite);
+            break;
         default:
             Serial.println("Update display currentface mismatch");
     }
@@ -525,7 +591,6 @@ void updateDisplay(FaceType* currentFace, TFT_eSprite* sprite){
     sprite->pushSprite(0,0);
 }
 
-// Function to handle touch for the current state:
 /**********************************************************************************************
 ***                        Functions for updating the sprite to specific displays
 ***
@@ -566,13 +631,28 @@ void updateMenuDisplay(TFT_eSprite* sprite) {
     Serial.println("Update: Printing Menu Display");
   #endif
   printMenuLayout(sprite);
-  
+
 }
 
-// Function to handle touch for the current state:
+void updateAlertTemperatureDisplay(TFT_eSprite* sprite) {
+  #ifdef DEBUG_ENABLED_FACE
+    Serial.println("Update: Printing Alert Display: Temperature");
+  #endif
+  printAlertTemperature(sprite);
+
+}
+
+void updateAlertSweatRateDisplay(TFT_eSprite* sprite) {
+  #ifdef DEBUG_ENABLED_FACE
+    Serial.println("Update: Printing Alert Display: Sweat Rate");
+  #endif
+  printAlertSweatRate(sprite);
+
+}
+
 /**********************************************************************************************
-***
-***
+***                    Handle touch for the current state
+***   
 ***
 **********************************************************************************************/
 void handleTouchForState(FaceType* currentFace, touchEvent* touch, TFT_eSprite* sprite) {
@@ -600,11 +680,21 @@ void handleTouchForClockDisplay(touchEvent* touch, TFT_eSprite* sprite) {
 
 void handleTouchForRawDataDisplay(touchEvent* touch, TFT_eSprite* sprite) {
     // Handle touch events specific to the Raw Data Display
+    Serial.println("Handling raw data face touch event...");
+    switch (touch->gesture) {
+        case CST816Touch::GESTURE_NONE:
+          updateSensors(true); 
+    }
 
 }
 
 void handleTouchForSweatRateDisplay(touchEvent* touch, TFT_eSprite* sprite) {
     // Handle touch events specific to the Sweat Rate Display
+    Serial.println("Handling sweat rate face touch event...");
+    switch (touch->gesture) {
+        case CST816Touch::GESTURE_NONE:
+          updateSensors(true);
+    }
 
 }
 
@@ -651,11 +741,13 @@ void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite) {
                             valueToShow = *(bool*)menuItems[menuItemTouched].value ? 1 : 0;
                             break;
                         case MenuItem::INTEGER:
-                            if (menuItems[menuItemTouched].name == "UTC Offset") {
-                                valueToShow = (uint16_t)*(long*)menuItems[menuItemTouched].value;
-                            } else {  // For float values like height and weight, you might want to handle differently
-                                valueToShow = (uint16_t)*(float*)menuItems[menuItemTouched].value;
-                            }
+                            valueToShow = (uint16_t)*(long*)menuItems[menuItemTouched].value;
+                            break;
+                        case MenuItem::FLOAT:
+                            valueToShow = (uint16_t)*(float*)menuItems[menuItemTouched].value;
+                            break;
+                        case MenuItem::STRING:
+                            valueToShow = *(char*)menuItems[menuItemTouched].value;
                             break;
                     }
                     refreshMenuItem(menuItemTouched, valueToShow, sprite);
@@ -667,20 +759,29 @@ void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite) {
     printMenuLayout(sprite);
 }
 
-
-
 void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite) {
     // Calculate the y-coordinate based on the index
     int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
     
     // Redraw the menu item with the new value at its location
-    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _bgColor);  // Clear previous value
+    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, TFT_LIGHTGREY);  // Clear previous value
     sprite->setTextSize(3);
-    sprite->setTextColor(_fgColor);
+    sprite->setTextColor(TFT_BLACK);
     sprite->drawString(menuItems[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
-    sprite->drawString(String(value), PIXEL_WIDTH - 50, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); // Adjust position as needed
+    sprite->drawString(String(value), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
 }
 
+void refreshMenuItem(int index, char value, TFT_eSprite* sprite) {
+    // Calculate the y-coordinate based on the index
+    int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
+    
+    // Redraw the menu item with the new value at its location
+    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, TFT_LIGHTGREY);  // Clear previous value
+    sprite->setTextSize(3);
+    sprite->setTextColor(TFT_BLACK);
+    sprite->drawString(menuItems[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+    sprite->drawString(String(value), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
+}
 
 /**********************************************************************************************
 *                                           Menu Actions
@@ -689,22 +790,31 @@ void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite) {
 **********************************************************************************************/
 
 void adjustTextColor() {
-    _textColor = pgm_read_word(&default_4bit_palette[(_textColor + 1) % 16]);
+    _textColorIndex = (_textColorIndex + 1) % 16;
+    _textColor = pgm_read_word(&default_4bit_palette[_textColorIndex]);
 }
 
 void adjustBgColor() {
-    _bgColor = pgm_read_word(&default_4bit_palette[(_bgColor + 1) % 16]);
+    _bgColorIndex = (_bgColorIndex + 1) % 16;
+    Serial.print("BG Color Index"); 
+    Serial.println(_bgColorIndex);
+    _bgColor = pgm_read_word(&default_4bit_palette[_bgColorIndex]);
 }
 
 void adjustFgColor() {
-    _fgColor = pgm_read_word(&default_4bit_palette[(_fgColor + 1) % 16]);
+    _fgColorIndex = (_fgColorIndex + 1) % 16;
+    _fgColor = pgm_read_word(&default_4bit_palette[_fgColorIndex]);
 }
 
 void adjustUTCOffset() {
-    _UTC_OFF = (_UTC_OFF + 1) % 25;  // Assuming offset is between -12 to +12
-    if (_UTC_OFF > 12) {
-        _UTC_OFF -= 25;  // This will give values from -12 to +12
+    _UTC_OFF = (_UTC_OFF + 1) % UTC_MAX_OFFSET;  
+    if (_UTC_OFF > ((UTC_MAX_OFFSET-1)/2)) {
+        _UTC_OFF -= UTC_MAX_OFFSET;  
     }
+}
+
+void calAD5933(){
+    calibrateAD5933();
 }
 
 void toggleTempUnit() {
@@ -716,35 +826,48 @@ void toggleDigitalDisplay() {
 }
 
 void adjustHeight() {
-    _height += 1;  // Increment by one, you can adjust as needed
+
+    _height += 4;  // Increment by four
     if (_height > 96) { // Assuming maximum height is 8 feet or 96 inches
         _height = 48;
     }
 }
 
 void adjustWeight() {
-    _weight += 1;  // Increment by one, you can adjust as needed
-    if (_weight > 300) { // Assuming a maximum weight of 300 lbs for this example
+    _weight += 5;  // Increment by five
+    if (_weight > 250) { // Assuming a maximum weight of 250 lbs for this example
         _weight = 80;
     }
 }
 
-
-/**********************************************************************************************
-*
-*
-*
-**********************************************************************************************/
-
 void loadMenuSettings(){
-    // Placeholder code: replace with logic to load from flash
-    _textColor = TFT_SKYBLUE;
-    _bgColor = TFT_BLACK;
-    _fgColor = TFT_DARKGREY;
-    _printDigital = false;
-    _temp_c = false;
-    _UTC_OFF = -4;  
-    _height = 6*12;
-    _weight = 155;
+    Serial.println("Reading Menu values from memory.");
+    preferences.begin("my-app", true); // Open in read-only mode
 
+    _textColor = preferences.getUInt("textColor", TFT_SKYBLUE);
+    _bgColor = preferences.getUInt("bgColor", TFT_BLACK);
+    _fgColor = preferences.getUInt("fgColor", TFT_DARKGREY);
+    _printDigital = preferences.getBool("printDigital", false);
+    _temp_c = preferences.getBool("tempC", true);
+    _UTC_OFF = preferences.getInt("UTCoff", -4);
+    _height = preferences.getInt("height", 72); // 6*12 inches as default
+    _weight = preferences.getInt("weight", 155);
+
+    preferences.end();
+}
+
+void writeMenuSettings(){
+    Serial.println("Writing Menu values to memory.");
+    preferences.begin("my-app", false); // Open in read-write mode
+
+    preferences.putUInt("textColor", _textColor);
+    preferences.putUInt("bgColor", _bgColor);
+    preferences.putUInt("fgColor", _fgColor);
+    preferences.putBool("printDigital", _printDigital);
+    preferences.putBool("tempC", _temp_c);
+    preferences.putInt("UTCoff", _UTC_OFF);
+    preferences.putInt("height", _height);
+    preferences.putInt("weight", _weight);
+
+    preferences.end();
 }
