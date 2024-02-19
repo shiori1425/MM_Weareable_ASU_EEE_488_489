@@ -99,6 +99,9 @@
  */
 class AD5933 {
     public:
+		// Begin functin to set I2C wire
+		static bool begin(TwoWire *wire);
+		
         // Reset the board
         static bool reset(void);
 
@@ -109,18 +112,22 @@ class AD5933 {
         // Clock
         static bool setClockSource(byte);
         static bool setInternalClock(bool);
-        bool setSettlingCycles(int);
+        static bool setSettlingCycles(int);
 
         // Frequency sweep configuration
         static bool setStartFrequency(unsigned long);
         static bool setIncrementFrequency(unsigned long);
         static bool setNumberIncrements(unsigned int);
 
+		
+
         // Gain configuration
         static bool setPGAGain(byte);
 
         // Excitation range configuration
-        bool setRange(byte);
+        static bool setRange(byte);
+		// Set the excitation voltage range
+        static bool setOutputVoltage(byte);
 
         // Read registers
         static byte readRegister(byte);
@@ -138,12 +145,14 @@ class AD5933 {
 
         // Perform frequency sweeps
         static bool frequencySweep(int real[], int imag[], int);
-        static bool calibrate(double gain[], int phase[], int ref, int n);
-        static bool calibrate(double gain[], int phase[], int real[],
+        static bool calibrate(double gain[], float phase[], int ref, int n);
+        static bool calibrate(double gain[], float phase[], int real[],
                               int imag[], int ref, int n);
     private:
         // Private data
         static const unsigned long clockSpeed = 16776000;
+		
+		static TwoWire *_wire;
 
         // Sending/Receiving byte method, for easy re-use
         static int getByte(byte, byte*);

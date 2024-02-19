@@ -11,6 +11,27 @@
 #include "AD5933.h"
 #include <Math.h>
 
+TwoWire *AD5933::_wire = nullptr;
+
+/**
+ * begin comms with the AD5933. 
+ *
+ * @return Success or failure
+ */
+bool AD5933::begin(TwoWire *wire) {
+    if (wire == nullptr) {
+        _wire = &Wire;
+    } else {
+        _wire = wire;
+    }
+    _wire->begin();
+	
+	if (!reset()){
+		return false;
+	}
+	return true;
+}
+
 /**
  * Request to read a byte from the AD5933.
  *
@@ -21,20 +42,20 @@
  */
 int AD5933::getByte(byte address, byte *value) {
     // Request to read a byte using the address pointer register
-    Wire.beginTransmission(AD5933_ADDR);
-    Wire.write(ADDR_PTR);
-    Wire.write(address);
+    _wire->beginTransmission(AD5933_ADDR);
+    _wire->write(ADDR_PTR);
+    _wire->write(address);
 
     // Ensure transmission worked
-    if (byte res = Wire.endTransmission() != I2C_RESULT_SUCCESS) {
+    if (byte res = _wire->endTransmission() != I2C_RESULT_SUCCESS) {
         *value = res;
         return false;
     }
 
     // Read the byte from the written address
-    Wire.requestFrom(AD5933_ADDR, 1);
-    if (Wire.available()) {
-        *value = Wire.read();
+    _wire->requestFrom(AD5933_ADDR, 1);
+    if (_wire->available()) {
+        *value = _wire->read();
         return true;
     } else {
         *value = 0;
@@ -51,12 +72,12 @@ int AD5933::getByte(byte address, byte *value) {
  */
 bool AD5933::sendByte(byte address, byte value) {
     // Send byte to address
-    Wire.beginTransmission(AD5933_ADDR);
-    Wire.write(address);
-    Wire.write(value);
+    _wire->beginTransmission(AD5933_ADDR);
+    _wire->write(address);
+    _wire->write(value);
 
     // Check that transmission completed successfully
-    if (byte res = Wire.endTransmission() != I2C_RESULT_SUCCESS) {
+    if (byte res = _wire->endTransmission() != I2C_RESULT_SUCCESS) {
         return false;
     } else {
         return true;
@@ -85,6 +106,9 @@ bool AD5933::setControlMode(byte mode) {
     // Write back to the register
     return sendByte(CTRL_REG1, val);
 }
+
+
+
 
 /**
  * Reset the AD5933. This interrupts a sweep if one is running, but the start
@@ -155,12 +179,12 @@ double AD5933::getTemperature() {
             }
         }
     }
-    return -1;
+    return -666;
 }
 
 
 /**
- * Set the color source. Choices are between internal and external.
+ * Set the Clock source. Choices are between internal and external.
  *
  * @param source Internal or External clock
  * @return Success or failure
@@ -242,6 +266,7 @@ bool AD5933::setStartFrequency(unsigned long start) {
     if (freqHex > 0xFFFFFF) {
         return false;   // overflow
     }
+	
 
     // freqHex should be a 24-bit value. We need to break it up into 3 bytes.
     byte highByte = (freqHex >> 16) & 0xFF;
@@ -514,7 +539,7 @@ bool AD5933::frequencySweep(int real[], int imag[], int n) {
  * @param n Length of the array (or the number of discrete measurements)
  * @return Success or failure
  */
-bool AD5933::calibrate(double gain[], int phase[], int ref, int n) {
+bool AD5933::calibrate(double gain[], float phase[], int ref, int n) {
     // We need arrays to hold the real and imaginary values temporarily
     int *real = new int[n];
     int *imag = new int[n];
@@ -529,7 +554,7 @@ bool AD5933::calibrate(double gain[], int phase[], int ref, int n) {
     // For each point in the sweep, calculate the gain factor and phase
     for (int i = 0; i < n; i++) {
         gain[i] = (double)(1.0/ref)/sqrt(pow(real[i], 2) + pow(imag[i], 2));
-        // TODO: phase
+		phase[i] = atan2(imag[i], real[i])*180/PI;
     }
 
     delete [] real;
@@ -549,7 +574,7 @@ bool AD5933::calibrate(double gain[], int phase[], int ref, int n) {
  * @param n Length of the array (or the number of discrete measurements)
  * @return Success or failure
  */
-bool AD5933::calibrate(double gain[], int phase[], int real[], int imag[],
+bool AD5933::calibrate(double gain[], float phase[], int real[], int imag[],
                        int ref, int n) {
     // Perform the frequency sweep
     if (!frequencySweep(real, imag, n)) {
@@ -559,7 +584,7 @@ bool AD5933::calibrate(double gain[], int phase[], int real[], int imag[],
     // For each point in the sweep, calculate the gain factor and phase
     for (int i = 0; i < n; i++) {
         gain[i] = (double)(1.0/ref)/sqrt(pow(real[i], 2) + pow(imag[i], 2));
-        // TODO: phase
+        phase[i] = atan2(imag[i], real[i])*180/PI;
     }
 
     return true;

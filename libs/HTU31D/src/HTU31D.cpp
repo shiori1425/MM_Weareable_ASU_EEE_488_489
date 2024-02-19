@@ -60,13 +60,6 @@ bool HTU31D::begin(uint8_t i2c_addr, TwoWire *theWire) {
     return false;
   }
 
-  if (!disableHeater()) {
-    #ifdef DEBUG_ENABLED
-        Serial.println("Begin: Disable Heater Failed!");
-    #endif
-    return false;
-  }
-
   return true;
 }
 

@@ -4,8 +4,8 @@
 #include "Arduino.h"
 #include "functions.h"
 #include "Types.h"
-#include "AD5933.h"
-#include "HTU31D.h"
+#include <AD5933.h>
+#include <HTU31D.h>
 #include "Preferences.h"
 
 extern FaceState currentFaceState;
