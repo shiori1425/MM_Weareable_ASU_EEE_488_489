@@ -1,7 +1,7 @@
 #pragma once
 
-#define WIFI_SSID                    "Get Off My LAN"
-#define WIFI_PASSWORD               "8328183231"
+#define WIFI_SSID                    "***********"
+#define WIFI_PASSWORD               "*********"
 
 
 /*ESP32S3*/
