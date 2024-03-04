@@ -347,6 +347,7 @@ void writeCalConstantsToMemory(){
 /* Sweat Rate Functions */
 void calcSweatRate(float* sweatRate, float height, float weight, float metabolic_rate){
     
+    float SWEAT_RATE_CAL_FACTOR = 1;
     // Convert height and weight
     // 1 in = 2.54cm
     float height_in_cm = height * 2.54;
@@ -356,18 +357,14 @@ void calcSweatRate(float* sweatRate, float height, float weight, float metabolic
     float BSA = 0.007184 * pow(height_in_cm, 0.725) * pow(weight_in_kg, 0.425);
 
     // Calculate saturated vapor pressures using Magnus-Tetens approximation
-    float e_s_ambient = 6.11 * pow(10, (17.625 * sensorData_ambi.temperature / (243.04 + sensorData_ambi.temperature)));
-    float e_s_skin = 6.11 * pow(10, (17.625 * sensorData_body.temperature / (243.04 + sensorData_body.temperature)));
+    float p_ambient = (sensorData_ambi.humidity / 100) * exp(18.6686 - (4030.183 / (235 - sensorData_ambi.temperature)));
+    float p_skin = (sensorData_body.humidity / 100) * exp(18.6686 - (4030.183 / (sensorData_body.temperature + 235)));
 
-    // Calculate actual vapor pressure
-    float e_ambient = sensorData_ambi.humidity * e_s_ambient / 100;
-    float e_skin = sensorData_body.humidity * e_s_skin / 100;
-
-    // Calculate Delta P water vapor and convert from hPa to Pa
-    float delta_P_water_vapor = (e_skin - e_ambient) * 100;
+    // Calculate Delta P water vapor
+    float delta_P_water_vapor = p_ambient - p_skin;
 
     // Calculate Emax
-    float Emax = (delta_P_water_vapor * BSA * 0.50) * (1 - REF_RESIST/skinRes);
+    float Emax = (delta_P_water_vapor * BSA * h_c) * (1 - skinRes / REF_RESIST);
 
     // Convert temperatures to Kelvin
     float T_body_K = sensorData_body.temperature + 273.15;
@@ -377,11 +374,11 @@ void calcSweatRate(float* sweatRate, float height, float weight, float metabolic
     float H_c = 6.45 * BSA * (T_ambient_K - T_body_K);
     float H_r = 1.5 * BSA;
     float H_l = 0.04 * BSA * stefan_boltzmann_constant * (pow(T_ambient_K, 4)+273.15);
-    float Ereq = metabolic_rate + H_c + H_r + H_l;
+    float Ereq = metabolic_rate - H_c - H_r - H_l;
 
     // Calculate sweat rate (mL/min)
     float calculatedSweatRate = 147 + 1.527 * Ereq - 0.87 * Emax;
-    calculatedSweatRate = calculatedSweatRate / 60;
+    calculatedSweatRate = calculatedSweatRate / (60 * SWEAT_RATE_CAL_FACTOR);
     // An average sweat rate during exersice is 15 to 25 mL/min
 
     // Assign the calculated value to the pointer
@@ -395,7 +392,6 @@ void calcSweatRate(float* sweatRate, float height, float weight, float metabolic
       printf("weight: %f\n", weight);
       printf("metabolic_rate: %f\n", metabolic_rate);
       printf("delta_P_water_vapor: %f\n", delta_P_water_vapor);
-      printf("e_skin: %f\n", e_skin);
       printf("sensorData_ambi.humidity: %f\n", sensorData_ambi.humidity);
       printf("T_body_K: %f\n", T_body_K);
       printf("Emax: %f\n", Emax);
