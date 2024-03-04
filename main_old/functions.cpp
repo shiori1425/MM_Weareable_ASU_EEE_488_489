@@ -155,17 +155,17 @@ void initializeTFT() {
 }
 
 void initializeTempSensors() {
-  if (!htu_ext.begin(0x40, &SensorsI2C)) {
+  if (!htu_ext.begin(0x40, &Wire)) {
     delay(3);
-    if (!htu_ext.begin(0x40, &SensorsI2C)) {
+    if (!htu_ext.begin(0x40, &Wire)) {
       Serial.println("Failed to initialize external HTU31D sensor!");
     }
   } else{
     Serial.println("external temp sensor intiialized");
   }
-  if (!htu_int.begin(0x41, &SensorsI2C)) {
+  if (!htu_int.begin(0x41, &Wire)) {
     delay(3);
-    if (!htu_ext.begin(0x40, &SensorsI2C)) {
+    if (!htu_ext.begin(0x40, &Wire)) {
       Serial.println("Failed to initialize internal HTU31D sensor!");
     }
   } else{

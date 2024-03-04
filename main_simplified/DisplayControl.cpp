@@ -437,7 +437,7 @@ void printSweatRate(TFT_eSprite* sprite) {
 
     // call Update Sweat Rate before printing it
     // 2.8 is the watts value of 2400 cals/hr metobolic rate
-    float metobolic_rate = 500
+    float metobolic_rate = 500;
     calcSweatRate(&sweatRate, _height, _weight, metobolic_rate);
     double heat_index = calculateHeatIndex(sensorData_ambi.temperature,sensorData_ambi.humidity); 
 

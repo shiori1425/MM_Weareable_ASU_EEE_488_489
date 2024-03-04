@@ -41,11 +41,11 @@ size_t bufferCount = 0;
 
 /* HTU31D Functions*/
 void initializeTempSensors() {
-  if(!htu31d_body->begin(0x40, &SensorsI2C)){
+  if(!htu31d_body->begin(0x40, &Wire)){
     Serial.println("HTU_INT Failed to init first try");
   }
 
-  if(!htu31d_ambi->begin(0x41, &SensorsI2C)){
+  if(!htu31d_ambi->begin(0x41, &Wire)){
     Serial.println("HTU_ext Failed to init first try");
   }
   delay(1);
@@ -159,7 +159,7 @@ void initialize5933() {
     Serial.println("Initializing AD5933...");
 
     Serial.print("Starting communication with AD5933...");
-    if (!AD5933::begin(&SensorsI2C)) {
+    if (!AD5933::begin(&Wire)) {
         Serial.println("FAILED in starting communication with AD5933!");
     }
     else{
