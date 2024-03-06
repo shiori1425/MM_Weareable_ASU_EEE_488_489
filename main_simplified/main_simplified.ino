@@ -6,14 +6,15 @@
 #include "functions.h"
 #include "DisplayControl.h"
 #include <CST816_TouchLib.h>
+#include "esp_sleep.h"
 
 #define DEBUG_ENABLED
 
 /* Configure additional IO*/
 bool button_pressed = false;
 bool sleep_wake_pressed = false;
-OneButton button1(PIN_BUTTON_1, true);
-OneButton button2(PIN_BUTTON_2, true);
+OneButton button1(PIN_BUTTON_1, true, false);
+OneButton button2(PIN_BUTTON_2, true, false);
 
 
 
@@ -30,12 +31,17 @@ void setup() {
   delay(1000); // Delay to let serial initialization complete
   Serial.println("Starting Up");
 
-  button2.attachClick([] { button_pressed = 1; });
-  button1.attachClick([] { sleep_wake_pressed = 1; }); // Button 1 is the Boot button
+  button1.attachClick([] { Serial.println("Button 1 pressed"); }); 
+  button2.attachClick([] { 
+    Serial.println("Button 2 pressed");
+    sleep_wake_pressed = true; 
+  }); 
 
   initMCU();
   initializeTempSensors();
   initialize5933();
+
+  esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_BUTTON_2), 0);
   
   delay(1);
 
@@ -80,13 +86,16 @@ void loop() {
       lastSensorReadTime = currentMillis;
   }
 
-  if (button_pressed){
-    resetDisplay();
-
-  }
-
   if (sleep_wake_pressed){
-    // put esp to sleep
+    Serial.println("Sleep_wake utton Pressed");
+    // Prepare for sleep
+    sleep_wake_pressed = false;
+    //logSensorDataToNVM();
+
+    // Enter sleep
+    Serial.println("Going to sleep now");
+    delay(100); // Wait for serial print to complete
+    esp_deep_sleep_start();
   }
 
   delay(1000);

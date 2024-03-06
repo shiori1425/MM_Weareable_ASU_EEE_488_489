@@ -87,7 +87,7 @@ void initializeNTP() {
   time_t now = 0;
   struct tm timeinfo = { 0 };
   int retry = 0;
-  const int retry_count = 10;
+  const int retry_count = 3;
   while(timeinfo.tm_year < (2016 - 1900) && ++retry < retry_count) {
       delay(1000);
       time(&now);
