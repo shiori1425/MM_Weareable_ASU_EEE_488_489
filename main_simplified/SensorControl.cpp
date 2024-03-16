@@ -313,7 +313,7 @@ void calibrateAD5933(){
 void readCalConstantsFromMemory(){
     // Load the saved gain and phase arrays from memory.
     Serial.println("Reading Cal Constants from memory.");
-    preferences.begin("my-app", true); // Open in read-only mode
+    preferences.begin("caldata", true); // Open in read-only mode
     // Load gain values
     for (int i = 0; i <= NUM_INCR; i++) {
       String key = "gain" + String(i); // Use the same unique key for each element
@@ -331,7 +331,7 @@ void readCalConstantsFromMemory(){
 
 void writeCalConstantsToMemory(){
     Serial.println("Writing Cal Constants to memory.");
-    preferences.begin("my-app", false); // Open in read-write mode
+    preferences.begin("caldata", false); // Open in read-write mode
 
     // Store gain values
     for (int i = 0; i <= NUM_INCR; i++) {
@@ -469,7 +469,14 @@ void eraseLoggedSensorData(){
 
 void eraseLoggedMenuSettings(){
   Serial.println("Clearing menu settings from memory");
-  preferences.begin("my-app");
+  preferences.begin("settings");
+  preferences.clear();
+  preferences.end();
+}
+
+void eraseCalConstants(){
+  Serial.println("Clearing menu settings from memory");
+  preferences.begin("caldata");
   preferences.clear();
   preferences.end();
 }

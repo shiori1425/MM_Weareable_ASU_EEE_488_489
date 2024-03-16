@@ -62,9 +62,9 @@ MenuItem menuItems[] = {
     {"Height (in)",     MenuItem::FLOAT,    adjustHeight,             &_height},
     {"Weight (lbs)",    MenuItem::FLOAT,    adjustWeight,             &_weight},
     {"Cal AD5933",      MenuItem::STRING,   calibrateAD5933,          &_calExec},
-    {"Print Log",       MenuItem::STRING,   printSensorLog,           &_calExec},
+    {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_calExec},
     {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_calExec},
-    {"Clr Settings",    MenuItem::STRING,   eraseLoggedMenuSettings,  &_calExec}
+    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_calExec}
 };
 
 
@@ -841,7 +841,7 @@ void adjustWeight() {
 
 void loadMenuSettings(){
     Serial.println("Reading Menu values from memory.");
-    preferences.begin("my-app", true); // Open in read-only mode
+    preferences.begin("settings", true); // Open in read-only mode
 
     _textColor = preferences.getUInt("textColor", TFT_SKYBLUE);
     _bgColor = preferences.getUInt("bgColor", TFT_BLACK);
@@ -857,7 +857,7 @@ void loadMenuSettings(){
 
 void writeMenuSettings(){
     Serial.println("Writing Menu values to memory.");
-    preferences.begin("my-app", false); // Open in read-write mode
+    preferences.begin("settings", false); // Open in read-write mode
 
     preferences.putUInt("textColor", _textColor);
     preferences.putUInt("bgColor", _bgColor);
