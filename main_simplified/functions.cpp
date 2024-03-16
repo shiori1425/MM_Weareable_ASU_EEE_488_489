@@ -5,8 +5,6 @@
 /* Setup I2C bus connections*/
 TwoWire SensorsI2C = TwoWire(1); // Create another I2C bus instance for sensor reads
 
-
-
 const char* formatResistance(float resistance, char* buffer) {
     char format[10]; // Buffer for the format string
     int decimalPlaces;
@@ -153,3 +151,4 @@ float readBatteryVoltage(){
   uint32_t v1 = esp_adc_cal_raw_to_voltage(raw, &adc_chars) * 2; 
   return v1;
 }
+

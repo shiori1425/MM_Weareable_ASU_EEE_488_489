@@ -31,7 +31,10 @@ void calcSweatRate(float* sweatRate, float height, float weight, float metabolic
 void updateSensors(bool forceUpdate = false);
 void frequencySweepRaw(float* res);
 void calibrateAD5933();
+void printSensorLog();
 void readCalConstantsFromMemory();
 void writeCalConstantsToMemory();
+void eraseLoggedSensorData();
+void eraseLoggedMenuSettings();
 
 #endif  // SENSORCONTROL_H

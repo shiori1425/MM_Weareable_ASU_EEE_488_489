@@ -15,7 +15,7 @@ float sweatRate = 0;
 #define START_FREQ  (49500)
 #define FREQ_INCR   (500)
 #define NUM_INCR    (2)
-#define REF_RESIST  (2000)
+#define REF_RESIST  (2200)
 
 double gain[NUM_INCR+1];
 float phase[NUM_INCR+1];
@@ -30,6 +30,8 @@ Preferences preferences;
 bool psramInitialized = psramFound();
 // Define the size of the PSRAM buffer
 const size_t bufferSize = 100; 
+
+#define MAX_LOG_LENGTH 200 // Maximum number of entries to store
 
 // Buffer for storing sweat rate values
 float *sweatRateBuffer;
@@ -114,6 +116,8 @@ void updateSensors(bool forceUpdate){
 
     // Update the last update time.
     lastUpdateTime = currentTime;
+
+    logSensorDataToNVM();
   }
 
   return;
@@ -404,13 +408,68 @@ void calcSweatRate(float* sweatRate, float height, float weight, float metabolic
 
 /* Data Logging Functions */
 void logSensorDataToNVM() {
-    // Replace with your actual logging code
-    // This could be writing to EEPROM, SPIFFS, or using the NVS library for ESP32
-    // Log external data
-      ///htu_ext.getEvent(&humidity, &temp);
-    //log internal data
-      ///htu_int.getEvent(&humidity, &temp);
-    // log skin res
 
-    //Serial.println("Logged Data");
+    Serial.println("Logging sensor data to memory");
+
+    // Get Log index
+    preferences.begin("sensor_log", false); 
+    int log_index = preferences.getInt("index", 0);
+
+    if (log_index > MAX_LOG_LENGTH){
+      log_index = 0;
+    }
+
+    String key = "sensorLog" + String(log_index); // Create a unique key for each element
+
+    char timeStr[10];
+    sprintf(timeStr, "%02d:%02d:%02d", hourFormat12(),minute(), second());
+
+    // Serialize the sensor readings into a string format, e.g., "timestamp,sensor1,sensor2,...;"
+    String newEntry = String(timeStr) + "," + 
+                      String(sensorData_body.temperature) + "," + 
+                      String(sensorData_body.humidity) + "," + 
+                      String(sensorData_ambi.temperature) + "," + 
+                      String(sensorData_ambi.humidity)+ "," + 
+                      String(skinRes);
+
+    // Write sensor data to memory
+    bool putSuccess  = preferences.putString(key.c_str(), newEntry);
+
+    if (putSuccess){
+      preferences.putInt("index", log_index+1);
+    }
+
+    preferences.end();
+}
+
+void printSensorLog() {
+    Serial.println(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ");
+    Serial.println("Sensor Data Log:");
+    Serial.println("Timestamp,Body Temp, Body Humid, Ambi Temp, Ambi Humid, Skin Res");
+    // Retrieve the log string from preferences
+    preferences.begin("sensor_log", true);
+    for (int i = 0; i < MAX_LOG_LENGTH; i++){
+      String key = "sensorLog" + String(i); // Create a unique key for each element
+      String logged_data = preferences.getString(key.c_str(), "");
+      if (logged_data == ""){
+        break;
+      }
+      Serial.println(logged_data);
+    }
+    preferences.end(); 
+    Serial.println(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ");
+}
+
+void eraseLoggedSensorData(){
+  Serial.println("Clearing sensor_log from memory");
+  preferences.begin("sensor_log");
+  preferences.clear();
+  preferences.end();
+}
+
+void eraseLoggedMenuSettings(){
+  Serial.println("Clearing menu settings from memory");
+  preferences.begin("my-app");
+  preferences.clear();
+  preferences.end();
 }

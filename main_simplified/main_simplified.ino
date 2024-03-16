@@ -79,10 +79,6 @@ void loop() {
 
   unsigned long currentMillis = millis();
   if (currentMillis - lastSensorReadTime >= SENSOR_READ_INTERVAL) {
-      #ifdef DEBUG_ENABLED
-          Serial.println("Logging sensor data");
-      #endif
-      //logSensorDataToNVM();
       lastSensorReadTime = currentMillis;
   }
 

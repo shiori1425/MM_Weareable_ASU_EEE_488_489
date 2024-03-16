@@ -49,20 +49,22 @@ void toggleTempUnit();
 void toggleDigitalDisplay();
 void adjustHeight();
 void adjustWeight();
-void calAD5933();
 void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite);
 
 MenuItem menuItems[] = {
-    //{"Label",    MenuItem::xxxx,    callback,       value}
-    {"Text Color",    MenuItem::COLOR,    adjustTextColor,       &_textColor},
-    {"BG Color",      MenuItem::COLOR,    adjustBgColor,         &_bgColor},
-    {"FG Color",      MenuItem::COLOR,    adjustFgColor,         &_fgColor},
-    {"Print Digital", MenuItem::BOOLEAN,  toggleDigitalDisplay,  &_printDigital},
-    {"Temp in C",     MenuItem::BOOLEAN,  toggleTempUnit,        &_temp_c},
-    {"UTC Offset",    MenuItem::INTEGER,  adjustUTCOffset,       &_UTC_OFF},
-    {"Height (in)",   MenuItem::FLOAT,    adjustHeight,          &_height},
-    {"Weight (lbs)",  MenuItem::FLOAT,    adjustWeight,          &_weight},
-    {"Cal AD5933",    MenuItem::STRING,   calAD5933,             &_calExec}
+    //{"Label",         MenuItem::xxxx,    callback,       value}
+    {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
+    {"BG Color",        MenuItem::COLOR,    adjustBgColor,            &_bgColor},
+    {"FG Color",        MenuItem::COLOR,    adjustFgColor,            &_fgColor},
+    {"Print Digital",   MenuItem::BOOLEAN,  toggleDigitalDisplay,     &_printDigital},
+    {"Temp in C",       MenuItem::BOOLEAN,  toggleTempUnit,           &_temp_c},
+    {"UTC Offset",      MenuItem::INTEGER,  adjustUTCOffset,          &_UTC_OFF},
+    {"Height (in)",     MenuItem::FLOAT,    adjustHeight,             &_height},
+    {"Weight (lbs)",    MenuItem::FLOAT,    adjustWeight,             &_weight},
+    {"Cal AD5933",      MenuItem::STRING,   calibrateAD5933,          &_calExec},
+    {"Print Log",       MenuItem::STRING,   printSensorLog,           &_calExec},
+    {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_calExec},
+    {"Clr Settings",    MenuItem::STRING,   eraseLoggedMenuSettings,  &_calExec}
 };
 
 
@@ -812,10 +814,6 @@ void adjustUTCOffset() {
     if (_UTC_OFF > ((UTC_MAX_OFFSET-1)/2)) {
         _UTC_OFF -= UTC_MAX_OFFSET;  
     }
-}
-
-void calAD5933(){
-    calibrateAD5933();
 }
 
 void toggleTempUnit() {
