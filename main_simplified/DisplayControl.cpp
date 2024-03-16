@@ -539,9 +539,9 @@ void updateBatterySprite(TFT_eSprite* sprite){
 
   if (bat_volt >= 3.6) {
     iconData = (uint16_t*)gImage_Full_Battery; 
-  } else if (bat_volt >= 3.4) {  // (3.6 + 3.2) / 2 = 3.4
+  } else if (bat_volt >= 3.5) {  // (3.6 + 3.2) / 2 = 3.4
     iconData = (uint16_t*)gImage_Battery_2; 
-  } else if (bat_volt >= 3.0) {  // (3.2 + 2.8) / 2 = 3.0
+  } else if (bat_volt >= 3.4) {  // (3.2 + 2.8) / 2 = 3.0
     iconData = (uint16_t*)gImage_Battery_1;
   } else {
     iconData = (uint16_t*)gImage_Battery_0;
@@ -679,7 +679,6 @@ void handleTouchForClockDisplay(touchEvent* touch, TFT_eSprite* sprite) {
     // Handle touch events specific to the Clock Display
 
 }
-
 
 void handleTouchForRawDataDisplay(touchEvent* touch, TFT_eSprite* sprite) {
     // Handle touch events specific to the Raw Data Display
