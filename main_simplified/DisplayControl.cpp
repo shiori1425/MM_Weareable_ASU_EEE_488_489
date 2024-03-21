@@ -213,6 +213,7 @@ void initializeTFT() {
   oTouch.setOperatingModeHardwareBased();
 }
 
+
 void resetDisplay(){
     tft.fillScreen(TFT_WHITE);
     delay(1);

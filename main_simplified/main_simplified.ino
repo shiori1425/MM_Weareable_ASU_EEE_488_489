@@ -13,7 +13,8 @@
 /* Configure additional IO*/
 bool button_pressed = false;
 bool sleep_wake_pressed = false;
-bool sleep_screen_pressed = false;
+bool screen_state = false;
+bool previous_screen_state = false;
 OneButton sleep_device(PIN_BUTTON_2, true, false);
 OneButton sleep_screen(PIN_BUTTON_1, true, false);
 
@@ -30,15 +31,8 @@ void setup() {
   delay(1000); // Delay to let serial initialization complete
   Serial.println("Starting Up");  
 
-  sleep_device.attachClick([]() { 
-    Serial.println("Device sleep button pressed"); 
-    sleep_wake_pressed = true;
-  });
-
-  sleep_screen.attachClick([]() { 
-    Serial.println("Screen sleep button pressed"); 
-    sleep_screen_pressed = true; 
-  });
+  sleep_device.attachClick([]() { sleep_wake_pressed = true; });
+  sleep_screen.attachClick([]() { screen_state = !screen_state; });
 
 
   initMCU();
@@ -89,10 +83,11 @@ void loop() {
       lastSensorReadTime = currentMillis;
   }
 
-
+  
   if (sleep_wake_pressed){
     Serial.println("Sleep_wake button pressed");
     // Prepare for sleep
+
     sleep_wake_pressed = false;
 
     // Enter sleep
@@ -100,9 +95,15 @@ void loop() {
     delay(100); // Wait for serial print to complete
     esp_deep_sleep_start();
   }
-  if (sleep_screen_pressed){
-    sleep_screen_pressed = false;
-    Serial.println("Sleep_Screen button pressed");
+  if (screen_state != previous_screen_state){
+    if (screen_state){
+      Serial.println("Screen is disabled");
+      tft.sleep(screen_state);
+    } else {
+      Serial.println("Screen is enabled");
+      tft.sleep(screen_state);
+    }
+    previous_screen_state = screen_state;
   }
 
   delay(10);

@@ -368,6 +368,7 @@ uint32_t setup_id;   // ID available to use in a user setup
 int32_t esp;         // Processor code
 uint8_t trans;       // SPI transaction support
 uint8_t serial;      // Serial (SPI) or parallel
+
 #ifndef GENERIC_PROCESSOR
 uint8_t  port;       // SPI port
 #endif
@@ -430,7 +431,7 @@ class TFT_eSPI : public Print { friend class TFT_eSprite; // Sprite class has ac
  public:
 
   TFT_eSPI(int16_t _W = TFT_WIDTH, int16_t _H = TFT_HEIGHT);
-
+  void sleep(bool value);
   // init() and begin() are equivalent, begin() included for backwards compatibility
   // Sketch defined tab colour option is for ST7735 displays only
   void     init(uint8_t tc = TAB_COLOUR), begin(uint8_t tc = TAB_COLOUR);

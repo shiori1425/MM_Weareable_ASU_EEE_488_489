@@ -23,6 +23,7 @@ extern CST816Touch oTouch;
 
 // Function declarations:
 void initializeTFT();
+
 FaceTransition* getFaceTransition(FaceType type);
 void resetDisplay();
 touchEvent getTouch();

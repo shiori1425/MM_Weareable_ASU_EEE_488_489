@@ -149,6 +149,7 @@ void initialize5933() {
     Serial.print("Starting communication with AD5933...");
     if (!AD5933::begin(&Wire)) {
         Serial.println("FAILED in starting communication with AD5933!");
+        return;
     }
     else{
       Serial.println("Communication started successfully!");
@@ -157,6 +158,7 @@ void initialize5933() {
     Serial.print("Setting internal clock...");
     if (!AD5933::setInternalClock(true)) {
         Serial.println("FAILED to set internal clock!");
+        return;
     }
     else{
       Serial.println("Internal clock set successfully!");
@@ -165,6 +167,7 @@ void initialize5933() {
     Serial.print("Setting start frequency...");
     if (!AD5933::setStartFrequency(START_FREQ)) {
         Serial.println("FAILED to set start frequency!");
+        return;
     }
     else{
       Serial.println("Start frequency set successfully!");
@@ -173,6 +176,7 @@ void initialize5933() {
     Serial.print("Setting increment frequency...");
     if (!AD5933::setIncrementFrequency(FREQ_INCR)) {
         Serial.println("FAILED to set increment frequency!");
+        return;
     }
     else{
       Serial.println("Increment frequency set successfully!");
@@ -181,6 +185,7 @@ void initialize5933() {
     Serial.print("Setting number of increments...");
     if (!AD5933::setNumberIncrements(NUM_INCR)) {
         Serial.println("FAILED to set number of increments!");
+        return;
     }
     else{
       Serial.println("Number of increments set successfully!");
@@ -189,6 +194,7 @@ void initialize5933() {
     Serial.print("Setting PGA gain...");
     if (!AD5933::setPGAGain(PGA_GAIN_X1)) {
         Serial.println("FAILED to set PGA gain!");
+        return;
     }
     else{
       Serial.println("PGA gain set successfully!");
@@ -197,6 +203,7 @@ void initialize5933() {
     Serial.print("Setting Output Rainge...");
     if (!AD5933::setRange(CTRL_OUTPUT_RANGE_4)) {
         Serial.println("FAILED to set Output Rainge!");
+        return;
     }
     else{
       Serial.println("Output Rainge set successfully!");

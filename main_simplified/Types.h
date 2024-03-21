@@ -11,7 +11,7 @@ enum class FaceType {
     SweatRate,
     Menu,
     Alert_Temperature, 
-    Alert_Sweat_Rate
+    Alert_Sweat_Rate,
 };
 
 enum FaceState {
