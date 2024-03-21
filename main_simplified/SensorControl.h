@@ -17,6 +17,8 @@ extern HTU31D::THData sensorData_ambi;
 
 extern float skinRes;
 extern float sweatRate;
+extern float _height;
+extern float _weight;
 
 
 void initSensors();
@@ -27,7 +29,7 @@ void printDiagnosticInfo(HTU31D* sensorInstance);
 void logSensorDataToNVM();
 HTU31D::THData readSensors(HTU31D* sensorInstance);
 
-void calcSweatRate(float* sweatRate, float height, float weight, float metabolic_rate);
+void calcSweatRate(float* sweatRate);
 void updateSensors(bool forceUpdate = false);
 void frequencySweepRaw(float* res);
 void calibrateAD5933();
@@ -35,6 +37,5 @@ void printSensorLog();
 void readCalConstantsFromMemory();
 void writeCalConstantsToMemory();
 void eraseLoggedSensorData();
-void eraseLoggedMenuSettings();
 
 #endif  // SENSORCONTROL_H

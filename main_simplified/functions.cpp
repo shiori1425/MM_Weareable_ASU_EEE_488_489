@@ -4,8 +4,6 @@
 
 Preferences preferences;
 
-#define MAX_BATTERY_LOG_LENGTH 100 // Max number is 240 if not logging sensors
-
 //#define LOG_BATTERY_DATA       // Uncomment this line to log battery data
 
 
@@ -155,7 +153,7 @@ float readBatteryVoltage(){
   // Current time since the board started.
   unsigned long currentTime = millis();
   // Log Battery voltage every 2 minutes if enables
-  if (currentTime - lastUpdateTime >= 120000 || lastUpdateTime == 0) {
+  if (currentTime - lastUpdateTime >= 90000 || lastUpdateTime == 0) {
     // Enable the battery level logging by 
     #ifdef LOG_BATTERY_DATA
       logBatteryToNVM(v1);
@@ -175,8 +173,8 @@ void logBatteryToNVM(uint32_t bat_volt) {
 
     int log_index = preferences.getInt("index", 0);
 
-    if (log_index > MAX_BATTERY_LOG_LENGTH){
-      log_index = MAX_BATTERY_LOG_LENGTH;
+    if (preferences.freeEntries() < 4){
+      log_index = 0;
     }
 
     String key = "batteryLog" + String(log_index); // Create a unique key for each element
@@ -209,13 +207,16 @@ void printBatteryLog() {
     Serial.println(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ");
     Serial.println("Battery Data Log:");
     Serial.println("Timestamp, level");
-    for (int i = 0; i < MAX_BATTERY_LOG_LENGTH; i++){
+    int i = 0;
+    int upperLimit = 1000; // An example upper limit
+    while (i < upperLimit){
       String key = "batteryLog" + String(i); // Create a unique key for each element
       String logged_data = preferences.getString(key.c_str(), "");
       if (logged_data == ""){
         break;
       }
       Serial.println(logged_data);
+      i++;
     }
     preferences.end(); 
     Serial.println(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ");

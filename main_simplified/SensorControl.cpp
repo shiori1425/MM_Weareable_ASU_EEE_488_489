@@ -11,6 +11,8 @@ HTU31D::THData sensorData_body;
 HTU31D::THData sensorData_ambi;
 
 float sweatRate = 0;
+float _height;
+float _weight;
 
 /* BioImpedance Sensor Setup*/
 #define START_FREQ  (49500)
@@ -97,11 +99,15 @@ void updateSensors(bool forceUpdate){
     sensorData_ambi = readSensors(htu31d_ambi); 
     // Read Skin Resistance
     frequencySweepRaw(&skinRes);
+    // Calc Sweat Rate
+    calcSweatRate(&sweatRate);
+    // Log new data
+    #ifdef LOG_SENSOR_DATA
+      logSensorDataToNVM();
+    #endif
 
     // Update the last update time.
-    lastUpdateTime = currentTime;
-
-    
+    lastUpdateTime = currentTime;    
   }
 
   return;
@@ -200,13 +206,13 @@ void initialize5933() {
       Serial.println("PGA gain set successfully!");
     }
 
-    Serial.print("Setting Output Rainge...");
+    Serial.print("Setting Output Range...");
     if (!AD5933::setRange(CTRL_OUTPUT_RANGE_4)) {
-        Serial.println("FAILED to set Output Rainge!");
+        Serial.println("FAILED to set Output Range!");
         return;
     }
     else{
-      Serial.println("Output Rainge set successfully!");
+      Serial.println("Output Range set successfully!");
     }
 
     Serial.print("Loading calibration data...");
@@ -301,6 +307,68 @@ void calibrateAD5933(){
     }
 }
 
+
+/* Sweat Rate Functions */
+void calcSweatRate(float* sweatRate){
+
+    float metabolic_rate = 500;
+    float SWEAT_RATE_CAL_FACTOR = 1;
+    // Convert height and weight
+    // 1 in = 2.54cm
+    float height_in_cm = _height * 2.54;
+    float weight_in_kg = _weight * 0.453592;
+
+    // Calculate Body Surface Area (BSA) using Du Bois formula  (m^2)
+    float BSA = 0.007184 * pow(height_in_cm, 0.725) * pow(weight_in_kg, 0.425);
+
+    // Calculate saturated vapor pressures using Magnus-Tetens approximation
+    float p_ambient = (sensorData_ambi.humidity / 100) * exp(18.6686 - (4030.183 / (235 - sensorData_ambi.temperature)));
+    float p_skin = (sensorData_body.humidity / 100) * exp(18.6686 - (4030.183 / (sensorData_body.temperature + 235)));
+
+    // Calculate Delta P water vapor
+    float delta_P_water_vapor = p_ambient - p_skin;
+
+    // Calculate Emax
+    float Emax = (delta_P_water_vapor * BSA * h_c) * (1 - skinRes / REF_RESIST);
+
+    // Convert temperatures to Kelvin
+    float T_body_K = sensorData_body.temperature + 273.15;
+    float T_ambient_K = sensorData_ambi.temperature + 273.15;
+
+    // Calculate Ereq
+    float H_c = 6.45 * BSA * (T_ambient_K - T_body_K);
+    float H_r = 1.5 * BSA;
+    float H_l = 0.04 * BSA * stefan_boltzmann_constant * (pow(T_ambient_K, 4)+273.15);
+    float Ereq = metabolic_rate - H_c - H_r - H_l;
+
+    // Calculate sweat rate (mL/min)
+    float calculatedSweatRate = 147 + 1.527 * Ereq - 0.87 * Emax;
+    calculatedSweatRate = calculatedSweatRate / (60 * SWEAT_RATE_CAL_FACTOR);
+    // An average sweat rate during exersice is 15 to 25 mL/min
+
+    // Assign the calculated value to the pointer
+    //*sweatRate = (calculatedSweatRate > 0) ? calculatedSweatRate : 0;
+    *sweatRate = calculatedSweatRate; 
+    #ifdef DEBUG_ENABLED
+      // Debug print values 
+      Serial.println("-------  Calculate Sweat -------");
+      printf("Sweat Rate in: %f\n", *sweatRate);
+      printf("height: %f\n", _height);
+      printf("weight: %f\n", _weight);
+      printf("metabolic_rate: %f\n", metabolic_rate);
+      printf("delta_P_water_vapor: %f\n", delta_P_water_vapor);
+      printf("sensorData_ambi.humidity: %f\n", sensorData_ambi.humidity);
+      printf("T_body_K: %f\n", T_body_K);
+      printf("Emax: %f\n", Emax);
+      printf("Ereq: %f\n", Ereq);
+      printf("sweatRate out: %f\n", *sweatRate); 
+      Serial.println("------------------------------");
+    #endif
+    return;
+}
+
+/* Data Logging Functions */
+
 void readCalConstantsFromMemory(){
     // Load the saved gain and phase arrays from memory.
     Serial.println("Reading Cal Constants from memory.");
@@ -339,68 +407,6 @@ void writeCalConstantsToMemory(){
     preferences.end(); // Close the preferences
 }
 
-/* Sweat Rate Functions */
-void calcSweatRate(float* sweatRate, float height, float weight, float metabolic_rate){
-    
-    float SWEAT_RATE_CAL_FACTOR = 1;
-    // Convert height and weight
-    // 1 in = 2.54cm
-    float height_in_cm = height * 2.54;
-    float weight_in_kg = weight * 0.453592;
-
-    // Calculate Body Surface Area (BSA) using Du Bois formula  (m^2)
-    float BSA = 0.007184 * pow(height_in_cm, 0.725) * pow(weight_in_kg, 0.425);
-
-    // Calculate saturated vapor pressures using Magnus-Tetens approximation
-    float p_ambient = (sensorData_ambi.humidity / 100) * exp(18.6686 - (4030.183 / (235 - sensorData_ambi.temperature)));
-    float p_skin = (sensorData_body.humidity / 100) * exp(18.6686 - (4030.183 / (sensorData_body.temperature + 235)));
-
-    // Calculate Delta P water vapor
-    float delta_P_water_vapor = p_ambient - p_skin;
-
-    // Calculate Emax
-    float Emax = (delta_P_water_vapor * BSA * h_c) * (1 - skinRes / REF_RESIST);
-
-    // Convert temperatures to Kelvin
-    float T_body_K = sensorData_body.temperature + 273.15;
-    float T_ambient_K = sensorData_ambi.temperature + 273.15;
-
-    // Calculate Ereq
-    float H_c = 6.45 * BSA * (T_ambient_K - T_body_K);
-    float H_r = 1.5 * BSA;
-    float H_l = 0.04 * BSA * stefan_boltzmann_constant * (pow(T_ambient_K, 4)+273.15);
-    float Ereq = metabolic_rate - H_c - H_r - H_l;
-
-    // Calculate sweat rate (mL/min)
-    float calculatedSweatRate = 147 + 1.527 * Ereq - 0.87 * Emax;
-    calculatedSweatRate = calculatedSweatRate / (60 * SWEAT_RATE_CAL_FACTOR);
-    // An average sweat rate during exersice is 15 to 25 mL/min
-
-    // Assign the calculated value to the pointer
-    //*sweatRate = (calculatedSweatRate > 0) ? calculatedSweatRate : 0;
-    *sweatRate = calculatedSweatRate; 
-    #ifdef DEBUG_ENABLED
-      // Debug print values 
-      Serial.println("-------  Calculate Sweat -------");
-      printf("Sweat Rate in: %f\n", *sweatRate);
-      printf("height: %f\n", height);
-      printf("weight: %f\n", weight);
-      printf("metabolic_rate: %f\n", metabolic_rate);
-      printf("delta_P_water_vapor: %f\n", delta_P_water_vapor);
-      printf("sensorData_ambi.humidity: %f\n", sensorData_ambi.humidity);
-      printf("T_body_K: %f\n", T_body_K);
-      printf("Emax: %f\n", Emax);
-      printf("Ereq: %f\n", Ereq);
-      printf("sweatRate out: %f\n", *sweatRate); 
-      Serial.println("------------------------------");
-    #endif
-    #ifdef LOG_SENSOR_DATA
-      logSensorDataToNVM();
-    #endif
-    return;
-}
-
-/* Data Logging Functions */
 void logSensorDataToNVM() {
 
     Serial.println("Logging sensor data to memory");
@@ -433,8 +439,8 @@ void logSensorDataToNVM() {
     bool putSuccess  = preferences.putString(key.c_str(), newEntry);
 
     Serial.println("Debug Pref:");
-    Serial.println("Entries left:");
-    Serial.println(preferences.freeEntries());
+    Serial.println("Sensor log  entries left:");
+    Serial.println(preferences.freeEntries()/3);
 
     if (putSuccess){
       preferences.putInt("index", log_index+1);
@@ -467,13 +473,6 @@ void printSensorLog() {
 void eraseLoggedSensorData(){
   Serial.println("Clearing sensor_log from memory");
   preferences.begin("sensor_log");
-  preferences.clear();
-  preferences.end();
-}
-
-void eraseLoggedMenuSettings(){
-  Serial.println("Clearing menu settings from memory");
-  preferences.begin("settings");
   preferences.clear();
   preferences.end();
 }

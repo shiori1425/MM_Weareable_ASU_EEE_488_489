@@ -59,4 +59,5 @@ void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite);
 //
 void loadMenuSettings();
 void writeMenuSettings();
+void eraseLoggedMenuSettings();
 #endif  // DISPLAYCONTROL_H

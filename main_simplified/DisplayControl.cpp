@@ -29,8 +29,6 @@ uint16_t _fgColor;
 bool _printDigital;
 bool _temp_c;
 long _UTC_OFF;
-float _height;
-float _weight;
 uint16_t _heatIndexColor;
 const char* _calExec = "Execute";
 const char* _emptyChar = "";
@@ -396,7 +394,7 @@ void printRightHalfDate(TFT_eSprite* sprite){
 }
 
 void printMenuLayout(TFT_eSprite* sprite){
-    sprite->fillSprite(TFT_LIGHTGREY);
+    sprite->fillSprite(_fgColor);
     
     // Draw the up arrow (this can be replaced with a graphic later if needed)
     sprite->fillTriangle(
@@ -453,9 +451,6 @@ void printRawData(TFT_eSprite* sprite){
 
   //Get updated raw data values
   updateSensors();
-  // Adding sweat rate calculation here for logging purposes
-  float metobolic_rate = 500;
-  calcSweatRate(&sweatRate, _height, _weight, metobolic_rate);
   
   sprite->fillSprite(_bgColor);
 
@@ -505,10 +500,6 @@ void printSweatRate(TFT_eSprite* sprite) {
     //Get updated raw data values
     updateSensors();
 
-    // call Update Sweat Rate before printing it
-    // 2.8 is the watts value of 2400 cals/hr metobolic rate
-    float metobolic_rate = 500;
-    calcSweatRate(&sweatRate, _height, _weight, metobolic_rate);
     double heat_index = calculateHeatIndex(sensorData_ambi.temperature,sensorData_ambi.humidity); 
 
     Serial.println("Heat Index");
@@ -580,10 +571,6 @@ void printAlertSweatRate(TFT_eSprite* sprite){
 
     //Get updated raw data values
     updateSensors();
-
-    // call Update Sweat Rate before printing it
-    calcSweatRate(&sweatRate, _height, _weight, 170);
-
     //sprite->pushToSprite(&spr_base, 0, 0);
     sprite->setTextSize(4);
     sprite->setTextColor(TFT_RED);  // Red
@@ -857,7 +844,7 @@ void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite) {
     int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
     
     // Redraw the menu item with the new value at its location
-    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, TFT_LIGHTGREY);  // Clear previous value
+    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _fgColor);  // Clear previous value
     sprite->setTextSize(3);
     sprite->setTextColor(TFT_BLACK);
     sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
@@ -869,7 +856,7 @@ void refreshMenuItem(int index, char value, TFT_eSprite* sprite) {
     int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
     
     // Redraw the menu item with the new value at its location
-    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, TFT_LIGHTGREY);  // Clear previous value
+    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _fgColor);  // Clear previous value
     sprite->setTextSize(3);
     sprite->setTextColor(TFT_BLACK);
     sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
@@ -929,6 +916,36 @@ void adjustWeight() {
     }
 }
 
+void setTopLevelMenu() {
+    Serial.println("Requesting Top LevelMenu");
+    requestedMenuChange = topMenuItems;
+}
+
+void setDisplayMenu() {
+    Serial.println("Requesting Display Menu");
+    requestedMenuChange = displayMenuItems;
+}
+
+void setSystemMenu() {
+    Serial.println("Requesting System Menu");
+    requestedMenuChange = systemMenuItems;
+}
+
+void setBodyParamsMenu() {
+    Serial.println("Requesting Body Params Menu");
+    requestedMenuChange = bodyParamsMenuItems;
+}
+
+void setResetMenu() {
+    Serial.println("Requesting Reset Menu");
+    requestedMenuChange = resetMenuItems;
+}
+/**********************************************************************************************
+*                                      Memory Read Writes
+*
+*
+**********************************************************************************************/
+
 void loadMenuSettings(){
     Serial.println("Reading Menu values from memory.");
     preferences.begin("settings", true); // Open in read-only mode
@@ -961,27 +978,10 @@ void writeMenuSettings(){
     preferences.end();
 }
 
-void setTopLevelMenu() {
-    Serial.println("Requesting Top LevelMenu");
-    requestedMenuChange = topMenuItems;
+void eraseLoggedMenuSettings(){
+  Serial.println("Clearing menu settings from memory");
+  preferences.begin("settings");
+  preferences.clear();
+  preferences.end();
 }
 
-void setDisplayMenu() {
-    Serial.println("Requesting Display Menu");
-    requestedMenuChange = displayMenuItems;
-}
-
-void setSystemMenu() {
-    Serial.println("Requesting System Menu");
-    requestedMenuChange = systemMenuItems;
-}
-
-void setBodyParamsMenu() {
-    Serial.println("Requesting Body Params Menu");
-    requestedMenuChange = bodyParamsMenuItems;
-}
-
-void setResetMenu() {
-    Serial.println("Requesting Reset Menu");
-    requestedMenuChange = resetMenuItems;
-}
