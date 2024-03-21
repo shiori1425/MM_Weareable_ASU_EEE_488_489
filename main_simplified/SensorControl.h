@@ -20,6 +20,8 @@ extern float sweatRate;
 extern float _height;
 extern float _weight;
 
+extern int updateRate;
+
 
 void initSensors();
 void initializeTempSensors();

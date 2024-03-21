@@ -2,6 +2,7 @@
 #include "SensorControl.h"
 
 #define DEBUG_ENABLED
+
 #define LOG_SENSOR_DATA
 
 /* Temp/Humidity Sensor Setup*/
@@ -27,6 +28,8 @@ float skinRes = 0;
 const float emissivity_skin = 0.95;
 const float stefan_boltzmann_constant = 5.67e-8;
 const float h_c = 3;
+
+int updateRate = 60000; // frequency of updating sensor data and sweat rate in ms
 
 /* HTU31D Functions*/
 void initializeTempSensors() {
@@ -91,8 +94,7 @@ void updateSensors(bool forceUpdate){
   // Current time since the board started.
   unsigned long currentTime = millis();
 
-  // Check if it's been more than 60 seconds since the last update.
-  if (currentTime - lastUpdateTime >= 60000 || lastUpdateTime == 0 || forceUpdate) {
+  if (currentTime - lastUpdateTime >= updateRate || lastUpdateTime == 0 || forceUpdate) {
     // Read Body Temp Sensor
     sensorData_body = readSensors(htu31d_body); 
     // Read Ambient Temp Sensor
@@ -306,7 +308,6 @@ void calibrateAD5933(){
         Serial.println(gain[i], 6); // Print each element, with 6 digits of precision for doubles
     }
 }
-
 
 /* Sweat Rate Functions */
 void calcSweatRate(float* sweatRate){
