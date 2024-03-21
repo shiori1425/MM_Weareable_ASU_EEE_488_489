@@ -18,9 +18,6 @@ bool previous_screen_state = false;
 OneButton sleep_device(PIN_BUTTON_2, true, false);
 OneButton sleep_screen(PIN_BUTTON_1, true, false);
 
-const unsigned long SENSOR_READ_INTERVAL = 30000;  // 30 seconds in milliseconds
-unsigned long lastSensorReadTime = SENSOR_READ_INTERVAL + 1;
-
 touchEvent currTouch;
 FaceType currentFace = FaceType::Clock;
 
@@ -77,12 +74,6 @@ void loop() {
   }
      
   updateDisplay(&currentFace, &spr);
-
-  unsigned long currentMillis = millis();
-  if (currentMillis - lastSensorReadTime >= SENSOR_READ_INTERVAL) {
-      lastSensorReadTime = currentMillis;
-  }
-
   
   if (sleep_wake_pressed){
     Serial.println("Sleep_wake button pressed");
@@ -95,6 +86,8 @@ void loop() {
     delay(100); // Wait for serial print to complete
     esp_deep_sleep_start();
   }
+
+  //Go into screen state if only on state change
   if (screen_state != previous_screen_state){
     if (screen_state){
       Serial.println("Screen is disabled");
@@ -115,7 +108,7 @@ void initMCU(){
   initializeTFT();
   tft.drawString("Initializing...",5,5);
   int retry = 0;
-  const int retry_count = 2;
+  const int retry_count = 3;
   // Connect to WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED && ++retry < retry_count) {
