@@ -157,7 +157,7 @@ float readBatteryVoltage(){
   // Log Battery voltage every 2 minutes if enables
   if (currentTime - lastUpdateTime >= 120000 || lastUpdateTime == 0) {
     // Enable the battery level logging by 
-    #ifdef DEBUG_ENABLED
+    #ifdef LOG_BATTERY_DATA
       logBatteryToNVM(v1);
     #endif
     lastUpdateTime = currentTime;

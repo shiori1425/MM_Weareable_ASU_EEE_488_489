@@ -26,8 +26,6 @@ const float emissivity_skin = 0.95;
 const float stefan_boltzmann_constant = 5.67e-8;
 const float h_c = 3;
 
-#define MAX_LOG_LENGTH 200 // Maximum number of entries to store is 160 if not logging battery
-
 /* HTU31D Functions*/
 void initializeTempSensors() {
   if(!htu31d_body->begin(0x40, &Wire)){
@@ -404,7 +402,9 @@ void logSensorDataToNVM() {
     preferences.begin("sensor_log", false); 
     int log_index = preferences.getInt("index", 0);
 
-    if (log_index > MAX_LOG_LENGTH){
+    // if there are less than 6 entries left we are out of space so we should start logging over
+    // 6 was chosen arbitrarily, we need 3 entries to log one line of sensor data
+    if (preferences.freeEntries() < 6){
       log_index = 0;
     }
 
@@ -442,13 +442,16 @@ void printSensorLog() {
     Serial.println("Timestamp,Body Temp, Body Humid, Ambi Temp, Ambi Humid, Skin Res, Sweat Rate");
     // Retrieve the log string from preferences
     preferences.begin("sensor_log", true);
-    for (int i = 0; i < MAX_LOG_LENGTH; i++){
+    int i = 0;
+    int upperLimit = 1000; // An example upper limit
+    while (i < upperLimit){
       String key = "sensorLog" + String(i); // Create a unique key for each element
       String logged_data = preferences.getString(key.c_str(), "");
       if (logged_data == ""){
         break;
       }
       Serial.println(logged_data);
+      i++;
     }
     preferences.end(); 
     Serial.println(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ");
