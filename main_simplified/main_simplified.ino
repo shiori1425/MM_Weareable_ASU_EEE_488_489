@@ -13,10 +13,9 @@
 /* Configure additional IO*/
 bool button_pressed = false;
 bool sleep_wake_pressed = false;
-OneButton button1(PIN_BUTTON_1, true, false);
-OneButton button2(PIN_BUTTON_2, true, false);
-
-
+bool sleep_screen_pressed = false;
+OneButton sleep_device(PIN_BUTTON_2, true, false);
+OneButton sleep_screen(PIN_BUTTON_1, true, false);
 
 const unsigned long SENSOR_READ_INTERVAL = 30000;  // 30 seconds in milliseconds
 unsigned long lastSensorReadTime = SENSOR_READ_INTERVAL + 1;
@@ -29,33 +28,42 @@ void setup() {
 
   Serial.begin(115200);
   delay(1000); // Delay to let serial initialization complete
-  Serial.println("Starting Up");
+  Serial.println("Starting Up");  
 
-  button1.attachClick([] { Serial.println("Button 1 pressed"); }); 
-  button2.attachClick([] { 
-    Serial.println("Button 2 pressed");
-    sleep_wake_pressed = true; 
-  }); 
+  sleep_device.attachClick([]() { 
+    Serial.println("Device sleep button pressed"); 
+    sleep_wake_pressed = true;
+  });
+
+  sleep_screen.attachClick([]() { 
+    Serial.println("Screen sleep button pressed"); 
+    sleep_screen_pressed = true; 
+  });
+
 
   initMCU();
   initializeTempSensors();
   initialize5933();
+  printBatteryLog();
+  printSensorLog();
 
-  esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_BUTTON_2), 0);
+  esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_BUTTON_2), 0); // 1 = High, 0 = Low
   
   delay(1);
+
 
   #ifdef DEBUG_ENABLED
       Serial.println("Setup Complete");
   #endif
 }
 
+
 void loop() {
-  button1.tick();
-  button2.tick();
+  sleep_device.tick();
+  sleep_screen.tick();
   oTouch.control();
 
-  if (oTouch.hadGesture() || oTouch.hadTouch()  ) {
+  if (oTouch.hadGesture() || oTouch.hadTouch()) {
       currTouch = getTouch();
       delay(10);
       switch (currTouch.gesture) {
@@ -72,9 +80,8 @@ void loop() {
           // handle face specific touches if anything else
           handleTouchForState(&currentFace, &currTouch, &spr);
       }
-     
   }
-
+     
   updateDisplay(&currentFace, &spr);
 
   unsigned long currentMillis = millis();
@@ -82,29 +89,32 @@ void loop() {
       lastSensorReadTime = currentMillis;
   }
 
+
   if (sleep_wake_pressed){
-    Serial.println("Sleep_wake utton Pressed");
+    Serial.println("Sleep_wake button pressed");
     // Prepare for sleep
     sleep_wake_pressed = false;
-    //logSensorDataToNVM();
 
     // Enter sleep
     Serial.println("Going to sleep now");
     delay(100); // Wait for serial print to complete
     esp_deep_sleep_start();
   }
+  if (sleep_screen_pressed){
+    sleep_screen_pressed = false;
+    Serial.println("Sleep_Screen button pressed");
+  }
 
-  delay(1000);
+  delay(10);
 }
 
 void initMCU(){
-
   initIO();
   loadMenuSettings();
   initializeTFT();
   tft.drawString("Initializing...",5,5);
   int retry = 0;
-  const int retry_count = 10;
+  const int retry_count = 2;
   // Connect to WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED && ++retry < retry_count) {

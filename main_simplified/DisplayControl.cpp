@@ -33,14 +33,16 @@ float _height;
 float _weight;
 uint16_t _heatIndexColor;
 const char* _calExec = "Execute";
+const char* _emptyChar = "";
 
 struct MenuItem {
     const char* name;
-    enum { COLOR, BOOLEAN, INTEGER, FLOAT, STRING } type;
+    enum { COLOR, BOOLEAN, INTEGER, FLOAT, STRING} type;
     void (*callback)();
     void* value;
 };
 
+// Declare Menu functions to load menu item arrays
 void adjustTextColor();
 void adjustBgColor();
 void adjustFgColor();
@@ -50,8 +52,14 @@ void toggleDigitalDisplay();
 void adjustHeight();
 void adjustWeight();
 void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite);
+void setTopLevelMenu();
+void setDisplayMenu();
+void setSystemMenu();
+void setBodyParamsMenu();
+void setResetMenu();
+int getMenuSize(MenuItem* menu);
 
-MenuItem menuItems[] = {
+MenuItem allMenuItems[] = {
     //{"Label",         MenuItem::xxxx,    callback,       value}
     {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
     {"BG Color",        MenuItem::COLOR,    adjustBgColor,            &_bgColor},
@@ -62,11 +70,66 @@ MenuItem menuItems[] = {
     {"Height (in)",     MenuItem::FLOAT,    adjustHeight,             &_height},
     {"Weight (lbs)",    MenuItem::FLOAT,    adjustWeight,             &_weight},
     {"Cal AD5933",      MenuItem::STRING,   calibrateAD5933,          &_calExec},
-    {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_calExec},
-    {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_calExec},
-    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_calExec}
+    {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_emptyChar},
+    {"",                MenuItem::STRING,   printSensorLog,           &_emptyChar},
+    {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_emptyChar},
+    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_emptyChar},
+    {"Reset Bat Data",  MenuItem::STRING,   eraseBatteryLog,          &_emptyChar},
 };
 
+MenuItem bodyParamsMenuItems[] = {
+    //{"Label",         MenuItem::xxxx,     callback,                 value}
+    {"Height (in)",     MenuItem::FLOAT,    adjustHeight,             &_height},
+    {"Weight (lbs)",    MenuItem::FLOAT,    adjustWeight,             &_weight},
+    {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
+};
+
+MenuItem resetMenuItems[] = {
+    //{"Label",         MenuItem::xxxx,    callback,       value}
+    {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_calExec},
+    {"Reset Bat Data",  MenuItem::STRING,   eraseBatteryLog,          &_calExec},
+    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_calExec},
+    {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
+};
+
+MenuItem colorMenuItems[] = {
+    //{"Label",         MenuItem::xxxx,     callback,                 value}
+    {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
+    {"BG Color",        MenuItem::COLOR,    adjustBgColor,            &_bgColor},
+    {"FG Color",        MenuItem::COLOR,    adjustFgColor,            &_fgColor},
+    {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
+};
+
+MenuItem displayMenuItems[] = {
+    //{"Label",         MenuItem::xxxx,     callback,                 value}
+    {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
+    {"BG Color",        MenuItem::COLOR,    adjustBgColor,            &_bgColor},
+    {"FG Color",        MenuItem::COLOR,    adjustFgColor,            &_fgColor},
+    {"Print Digital",   MenuItem::BOOLEAN,  toggleDigitalDisplay,     &_printDigital},
+    {"Temp in C",       MenuItem::BOOLEAN,  toggleTempUnit,           &_temp_c},
+    {"UTC Offset",      MenuItem::INTEGER,  adjustUTCOffset,          &_UTC_OFF},
+    {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
+};
+
+MenuItem systemMenuItems[] = {
+    //{"Label",         MenuItem::xxxx,     callback,                 value}
+    {"Cal AD5933",      MenuItem::STRING,   calibrateAD5933,          &_emptyChar},
+    {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_emptyChar},
+    {"Print Bat Data",  MenuItem::STRING,   printBatteryLog,          &_emptyChar},
+    {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
+};
+
+MenuItem topMenuItems[] = {
+    //{"Label",       MenuItem::xxxx,       callback,                 Value}
+    {"Display",       MenuItem::STRING,     setDisplayMenu,           &_emptyChar},
+    {"Body Params",   MenuItem::STRING,     setBodyParamsMenu,        &_emptyChar},
+    {"System",        MenuItem::STRING,     setSystemMenu,            &_emptyChar},
+    {"Reset",         MenuItem::STRING,     setResetMenu,             &_emptyChar},
+
+};
+
+MenuItem* activeMenu = topMenuItems;
+MenuItem* requestedMenuChange = nullptr;
 
 int32_t width, height, left_center, right_center;
 
@@ -195,6 +258,7 @@ void handleGestures(FaceType *currentFace, touchEvent *currTouch) {
                 prevFace = *currentFace;
                 *currentFace = FaceType::Menu;
                 isMenu = true;
+                setTopLevelMenu();
                 break;
         }
     }
@@ -355,8 +419,8 @@ void printMenuLayout(TFT_eSprite* sprite){
         int y = ARROW_SIZE + i * MENU_ITEM_HEIGHT;
         sprite->drawRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, TFT_BLACK);
 
-        if (i + menuOffset < sizeof(menuItems) / sizeof(menuItems[0])) {
-            MenuItem& item = menuItems[i + menuOffset];
+        if (i + menuOffset < getMenuSize(activeMenu)) {
+            MenuItem& item = activeMenu[i + menuOffset];
 
             // Display the item name
             sprite->setTextSize(3);
@@ -388,6 +452,9 @@ void printRawData(TFT_eSprite* sprite){
 
   //Get updated raw data values
   updateSensors();
+  // Adding sweat rate calculation here for logging purposes
+  float metobolic_rate = 500;
+  calcSweatRate(&sweatRate, _height, _weight, metobolic_rate);
   
   sprite->fillSprite(_bgColor);
 
@@ -633,6 +700,10 @@ void updateMenuDisplay(TFT_eSprite* sprite) {
   #ifdef DEBUG_ENABLED_FACE
     Serial.println("Update: Printing Menu Display");
   #endif
+  if (requestedMenuChange != nullptr) {
+        activeMenu = requestedMenuChange;
+        requestedMenuChange = nullptr;
+    }
   printMenuLayout(sprite);
 
 }
@@ -650,7 +721,6 @@ void updateAlertSweatRateDisplay(TFT_eSprite* sprite) {
     Serial.println("Update: Printing Alert Display: Sweat Rate");
   #endif
   printAlertSweatRate(sprite);
-
 }
 
 /**********************************************************************************************
@@ -669,7 +739,7 @@ void handleTouchForState(FaceType* currentFace, touchEvent* touch, TFT_eSprite* 
         case FaceType::SweatRate:
             handleTouchForSweatRateDisplay(touch, sprite);
             break;
-        case FaceType::Menu:
+        case FaceType::Menu:            
             handleTouchForMenuDisplay(touch, sprite);
             break;
     }
@@ -677,7 +747,6 @@ void handleTouchForState(FaceType* currentFace, touchEvent* touch, TFT_eSprite* 
 
 void handleTouchForClockDisplay(touchEvent* touch, TFT_eSprite* sprite) {
     // Handle touch events specific to the Clock Display
-
 }
 
 void handleTouchForRawDataDisplay(touchEvent* touch, TFT_eSprite* sprite) {
@@ -702,9 +771,9 @@ void handleTouchForSweatRateDisplay(touchEvent* touch, TFT_eSprite* sprite) {
 
 void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite) {
 
-    int totalMenuItems = sizeof(menuItems) / sizeof(menuItems[0]);
+    int totalMenuItems = getMenuSize(activeMenu);
 
-    Serial.println("Handling touch event...");
+    Serial.println("Handling menu touch event...");
 
     switch (touch->gesture) {
         case CST816Touch::GESTURE_UP:
@@ -730,26 +799,26 @@ void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite) {
                 Serial.printf("Touched menu item index: %d\n", menuItemTouched);
                 if (menuItemTouched >= 0 && menuItemTouched < totalMenuItems) {
                     // Call the corresponding callback for the touched menu item
-                    Serial.printf("Calling callback for menu item: %s\n", menuItems[menuItemTouched].name);
-                    menuItems[menuItemTouched].callback();
+                    Serial.printf("Calling callback for menu item: %s\n", activeMenu[menuItemTouched].name);
+                    activeMenu[menuItemTouched].callback();
                     
                     // Given the type of value, cast and dereference it
                     uint16_t valueToShow;  // This will hold the value to be displayed
-                    switch(menuItems[menuItemTouched].type) {
+                    switch(activeMenu[menuItemTouched].type) {
                         case MenuItem::COLOR:
-                            valueToShow = *(uint16_t*)menuItems[menuItemTouched].value;
+                            valueToShow = *(uint16_t*)activeMenu[menuItemTouched].value;
                             break;
                         case MenuItem::BOOLEAN:
-                            valueToShow = *(bool*)menuItems[menuItemTouched].value ? 1 : 0;
+                            valueToShow = *(bool*)activeMenu[menuItemTouched].value ? 1 : 0;
                             break;
                         case MenuItem::INTEGER:
-                            valueToShow = (uint16_t)*(long*)menuItems[menuItemTouched].value;
+                            valueToShow = (uint16_t)*(long*)activeMenu[menuItemTouched].value;
                             break;
                         case MenuItem::FLOAT:
-                            valueToShow = (uint16_t)*(float*)menuItems[menuItemTouched].value;
+                            valueToShow = (uint16_t)*(float*)activeMenu[menuItemTouched].value;
                             break;
                         case MenuItem::STRING:
-                            valueToShow = *(char*)menuItems[menuItemTouched].value;
+                            valueToShow = *(char*)activeMenu[menuItemTouched].value;
                             break;
                     }
                     refreshMenuItem(menuItemTouched, valueToShow, sprite);
@@ -761,6 +830,27 @@ void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite) {
     printMenuLayout(sprite);
 }
 
+int getMenuSize(MenuItem* menu) {
+    if (menu == allMenuItems) {
+        return sizeof(allMenuItems) / sizeof(allMenuItems[0]);
+    } else if (menu == bodyParamsMenuItems) {
+        return sizeof(bodyParamsMenuItems) / sizeof(bodyParamsMenuItems[0]);
+    } else if (menu == resetMenuItems) {
+        return sizeof(resetMenuItems) / sizeof(resetMenuItems[0]);
+    } else if (menu == colorMenuItems) {
+        return sizeof(colorMenuItems) / sizeof(colorMenuItems[0]);
+    } else if (menu == displayMenuItems) {
+        return sizeof(displayMenuItems) / sizeof(displayMenuItems[0]);
+    } else if (menu == systemMenuItems) {
+        return sizeof(systemMenuItems) / sizeof(systemMenuItems[0]);
+    } else if (menu == topMenuItems) {
+        return sizeof(topMenuItems) / sizeof(topMenuItems[0]);
+    }else{
+        Serial.println("Error: Menu Size Mismatch");
+        return 0;
+    }
+}
+
 void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite) {
     // Calculate the y-coordinate based on the index
     int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
@@ -769,7 +859,7 @@ void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite) {
     sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, TFT_LIGHTGREY);  // Clear previous value
     sprite->setTextSize(3);
     sprite->setTextColor(TFT_BLACK);
-    sprite->drawString(menuItems[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+    sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
     sprite->drawString(String(value), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
 }
 
@@ -781,7 +871,7 @@ void refreshMenuItem(int index, char value, TFT_eSprite* sprite) {
     sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, TFT_LIGHTGREY);  // Clear previous value
     sprite->setTextSize(3);
     sprite->setTextColor(TFT_BLACK);
-    sprite->drawString(menuItems[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+    sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
     sprite->drawString(String(value), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
 }
 
@@ -868,4 +958,29 @@ void writeMenuSettings(){
     preferences.putInt("weight", _weight);
 
     preferences.end();
+}
+
+void setTopLevelMenu() {
+    Serial.println("Requesting Top LevelMenu");
+    requestedMenuChange = topMenuItems;
+}
+
+void setDisplayMenu() {
+    Serial.println("Requesting Display Menu");
+    requestedMenuChange = displayMenuItems;
+}
+
+void setSystemMenu() {
+    Serial.println("Requesting System Menu");
+    requestedMenuChange = systemMenuItems;
+}
+
+void setBodyParamsMenu() {
+    Serial.println("Requesting Body Params Menu");
+    requestedMenuChange = bodyParamsMenuItems;
+}
+
+void setResetMenu() {
+    Serial.println("Requesting Reset Menu");
+    requestedMenuChange = resetMenuItems;
 }

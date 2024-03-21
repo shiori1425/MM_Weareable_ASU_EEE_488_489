@@ -6,7 +6,7 @@
 #include "Types.h"
 #include <AD5933.h>
 #include <HTU31D.h>
-#include "Preferences.h"
+
 
 extern FaceState currentFaceState;
 extern HTU31D* htu31d_body;
@@ -17,7 +17,7 @@ extern HTU31D::THData sensorData_ambi;
 
 extern float skinRes;
 extern float sweatRate;
-extern Preferences preferences;
+
 
 void initSensors();
 void initializeTempSensors();

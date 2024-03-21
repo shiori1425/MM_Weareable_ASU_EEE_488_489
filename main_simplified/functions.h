@@ -9,7 +9,9 @@
 #include <SPIFFS.h>
 #include <math.h>
 #include <esp_adc_cal.h>
+#include "Preferences.h"
 
+extern Preferences preferences;
 
 extern "C" {
   #include "lwip/apps/sntp.h"
@@ -27,6 +29,9 @@ void initIO();
 void initializeNTP();
 double calculateHeatIndex(double temp, double humidity);
 float readBatteryVoltage();
+void logBatteryToNVM(uint32_t bat_volt);
+void printBatteryLog();
+void eraseBatteryLog();
 
 
 

@@ -2,6 +2,13 @@
 
 #include "functions.h"
 
+Preferences preferences;
+
+#define MAX_BATTERY_LOG_LENGTH 100 // Max number is 240 if not logging sensors
+
+//#define LOG_BATTERY_DATA       // Uncomment this line to log battery data
+
+
 /* Setup I2C bus connections*/
 TwoWire SensorsI2C = TwoWire(1); // Create another I2C bus instance for sensor reads
 
@@ -59,10 +66,6 @@ void initIO(){
       Serial.println("IO pins set. Starting I2C...");
   #endif
 
-  // Start I2C
-  SensorsI2C.begin(PIN_THIC_SDA, PIN_THIC_SCL); // Initialize Sensor I2C BUS
-  SensorsI2C.setClock(400000);  // max clock speed for HTU31D is 1M but for AD5933 is 400k
-  delay(1);
   Wire.begin(PIN_IIC_SDA, PIN_IIC_SCL);
   Wire.setClock(400000);   // Max clock speed for Touch Controller
   delay(1);
@@ -112,7 +115,6 @@ void initializeNTP() {
   #endif
 }
 
-
 double calculateHeatIndex(double temp, double humidity) {
     // convert Celsius to Fahrenheit
     temp = temp * 9 / 5 + 32; 
@@ -149,6 +151,79 @@ float readBatteryVoltage(){
   esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
   uint32_t raw = analogRead(PIN_BAT_VOLT);
   uint32_t v1 = esp_adc_cal_raw_to_voltage(raw, &adc_chars) * 2; 
+  static unsigned long lastUpdateTime = 0;
+  // Current time since the board started.
+  unsigned long currentTime = millis();
+  // Log Battery voltage every 2 minutes if enables
+  if (currentTime - lastUpdateTime >= 120000 || lastUpdateTime == 0) {
+    // Enable the battery level logging by 
+    #ifdef DEBUG_ENABLED
+      logBatteryToNVM(v1);
+    #endif
+    lastUpdateTime = currentTime;
+  }
+  
   return v1;
 }
 
+/* Data Logging Functions */
+void logBatteryToNVM(uint32_t bat_volt) {
+
+    Serial.println("Logging battery data to memory");
+
+    preferences.begin("bat_log", false);
+
+    int log_index = preferences.getInt("index", 0);
+
+    if (log_index > MAX_BATTERY_LOG_LENGTH){
+      log_index = MAX_BATTERY_LOG_LENGTH;
+    }
+
+    String key = "batteryLog" + String(log_index); // Create a unique key for each element
+
+    char timeStr[10];
+    sprintf(timeStr, "%02d:%02d:%02d", hourFormat12(),minute(), second());
+
+    // Serialize the sensor readings into a string format, e.g., "timestamp,sensor1,sensor2,...;"
+    String newEntry = String(timeStr) + "," + String(bat_volt);
+
+    // Write sensor data to memory
+    bool putSuccess  = preferences.putString(key.c_str(), newEntry);
+
+    if (putSuccess){
+      Serial.println("Battery data logged successfully");
+      preferences.putInt("index", log_index+1);
+    }
+    else {
+      Serial.println("Battery data failed to log");
+    }
+    
+    preferences.end();
+
+    //printBatteryLog();
+}
+
+void printBatteryLog() {
+    
+    preferences.begin("bat_log", false);
+    Serial.println(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ");
+    Serial.println("Battery Data Log:");
+    Serial.println("Timestamp, level");
+    for (int i = 0; i < MAX_BATTERY_LOG_LENGTH; i++){
+      String key = "batteryLog" + String(i); // Create a unique key for each element
+      String logged_data = preferences.getString(key.c_str(), "");
+      if (logged_data == ""){
+        break;
+      }
+      Serial.println(logged_data);
+    }
+    preferences.end(); 
+    Serial.println(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ");
+}
+
+void eraseBatteryLog(){
+  Serial.println("Clearing menu settings from memory");
+  preferences.begin("bat_log");
+  preferences.clear();
+  preferences.end();
+}

@@ -2,6 +2,7 @@
 #include "SensorControl.h"
 
 #define DEBUG_ENABLED
+#define LOG_SENSOR_DATA
 
 /* Temp/Humidity Sensor Setup*/
 HTU31D* htu31d_body = new HTU31D();
@@ -25,21 +26,7 @@ const float emissivity_skin = 0.95;
 const float stefan_boltzmann_constant = 5.67e-8;
 const float h_c = 3;
 
-Preferences preferences;
-
-bool psramInitialized = psramFound();
-// Define the size of the PSRAM buffer
-const size_t bufferSize = 100; 
-
-#define MAX_LOG_LENGTH 200 // Maximum number of entries to store
-
-// Buffer for storing sweat rate values
-float *sweatRateBuffer;
-
-// Variables to manage the buffer
-size_t bufferHead = 0;
-size_t bufferTail = 0;
-size_t bufferCount = 0;
+#define MAX_LOG_LENGTH 200 // Maximum number of entries to store is 160 if not logging battery
 
 /* HTU31D Functions*/
 void initializeTempSensors() {
@@ -112,12 +99,11 @@ void updateSensors(bool forceUpdate){
     sensorData_ambi = readSensors(htu31d_ambi); 
     // Read Skin Resistance
     frequencySweepRaw(&skinRes);
-    //readSkinRes(&skinRes);
 
     // Update the last update time.
     lastUpdateTime = currentTime;
 
-    logSensorDataToNVM();
+    
   }
 
   return;
@@ -403,6 +389,9 @@ void calcSweatRate(float* sweatRate, float height, float weight, float metabolic
       printf("sweatRate out: %f\n", *sweatRate); 
       Serial.println("------------------------------");
     #endif
+    #ifdef LOG_SENSOR_DATA
+      logSensorDataToNVM();
+    #endif
     return;
 }
 
@@ -430,10 +419,15 @@ void logSensorDataToNVM() {
                       String(sensorData_body.humidity) + "," + 
                       String(sensorData_ambi.temperature) + "," + 
                       String(sensorData_ambi.humidity)+ "," + 
-                      String(skinRes);
+                      String(skinRes)+ "," + 
+                      String(sweatRate);
 
     // Write sensor data to memory
     bool putSuccess  = preferences.putString(key.c_str(), newEntry);
+
+    Serial.println("Debug Pref:");
+    Serial.println("Entries left:");
+    Serial.println(preferences.freeEntries());
 
     if (putSuccess){
       preferences.putInt("index", log_index+1);
@@ -445,7 +439,7 @@ void logSensorDataToNVM() {
 void printSensorLog() {
     Serial.println(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ");
     Serial.println("Sensor Data Log:");
-    Serial.println("Timestamp,Body Temp, Body Humid, Ambi Temp, Ambi Humid, Skin Res");
+    Serial.println("Timestamp,Body Temp, Body Humid, Ambi Temp, Ambi Humid, Skin Res, Sweat Rate");
     // Retrieve the log string from preferences
     preferences.begin("sensor_log", true);
     for (int i = 0; i < MAX_LOG_LENGTH; i++){
