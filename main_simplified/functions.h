@@ -10,8 +10,13 @@
 #include <math.h>
 #include <esp_adc_cal.h>
 #include "Preferences.h"
+#include <WiFi.h>
 
 extern Preferences preferences;
+
+extern WiFiServer server;
+extern WiFiClient client;
+extern String ipAddress;
 
 extern "C" {
   #include "lwip/apps/sntp.h"
@@ -26,12 +31,16 @@ const char* formatResistance(float resistance, char* buffer) ;
 float change_to_f(float temp_c);
 float change_to_C(float temp_f);
 void initIO();
+void initWiFi();
+void checkWiFiClient();
 void initializeNTP();
+void configureWiFiHost();
 double calculateHeatIndex(double temp, double humidity);
 float readBatteryVoltage();
 void logBatteryToNVM(uint32_t bat_volt);
 void printBatteryLog();
 void eraseBatteryLog();
+void wifiSerial(const String& str);
 
 
 

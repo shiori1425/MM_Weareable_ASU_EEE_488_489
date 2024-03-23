@@ -12,8 +12,8 @@ HTU31D::THData sensorData_body;
 HTU31D::THData sensorData_ambi;
 
 float sweatRate = 0;
-float _height;
-float _weight;
+int _height;
+int _weight;
 
 /* BioImpedance Sensor Setup*/
 #define START_FREQ  (49500)
@@ -439,6 +439,8 @@ void logSensorDataToNVM() {
     // Write sensor data to memory
     bool putSuccess  = preferences.putString(key.c_str(), newEntry);
 
+    wifiSerial(newEntry);
+
     Serial.println("Debug Pref:");
     Serial.println("Sensor log  entries left:");
     Serial.println(preferences.freeEntries()/3);
@@ -465,6 +467,7 @@ void printSensorLog() {
         break;
       }
       Serial.println(logged_data);
+      wifiSerial(logged_data);
       i++;
     }
     preferences.end(); 
@@ -472,14 +475,14 @@ void printSensorLog() {
 }
 
 void eraseLoggedSensorData(){
-  Serial.println("Clearing sensor_log from memory");
+  Serial.println("Clearing sensor log from memory");
   preferences.begin("sensor_log");
   preferences.clear();
   preferences.end();
 }
 
 void eraseCalConstants(){
-  Serial.println("Clearing menu settings from memory");
+  Serial.println("Clearing cal data from memory");
   preferences.begin("caldata");
   preferences.clear();
   preferences.end();

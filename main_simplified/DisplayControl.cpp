@@ -31,7 +31,7 @@ bool _temp_c;
 long _UTC_OFF;
 uint16_t _heatIndexColor;
 const char* _calExec = "Execute";
-const char* _emptyChar = "";
+const char* _emptyChar = nullptr;
 
 struct MenuItem {
     const char* name;
@@ -50,11 +50,16 @@ void toggleDigitalDisplay();
 void adjustHeight();
 void adjustWeight();
 void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite);
+void refreshMenuItem(int index, int value, TFT_eSprite* sprite);
+void refreshMenuItem(int index, float value, TFT_eSprite* sprite);
+void refreshMenuItem(int index, bool value, TFT_eSprite* sprite);
+void refreshMenuItem(int index, const char* value, TFT_eSprite* sprite);
 void setTopLevelMenu();
 void setDisplayMenu();
 void setSystemMenu();
 void setBodyParamsMenu();
 void setResetMenu();
+void noop();
 int getMenuSize(MenuItem* menu);
 
 MenuItem allMenuItems[] = {
@@ -77,16 +82,16 @@ MenuItem allMenuItems[] = {
 
 MenuItem bodyParamsMenuItems[] = {
     //{"Label",         MenuItem::xxxx,     callback,                 value}
-    {"Height (in)",     MenuItem::FLOAT,    adjustHeight,             &_height},
-    {"Weight (lbs)",    MenuItem::FLOAT,    adjustWeight,             &_weight},
+    {"Height (in)",     MenuItem::INTEGER,    adjustHeight,             &_height},
+    {"Weight (lbs)",    MenuItem::INTEGER,    adjustWeight,             &_weight},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
 MenuItem resetMenuItems[] = {
     //{"Label",         MenuItem::xxxx,    callback,       value}
-    {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_calExec},
-    {"Reset Bat Data",  MenuItem::STRING,   eraseBatteryLog,          &_calExec},
-    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_calExec},
+    {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_emptyChar},
+    {"Reset Bat Data",  MenuItem::STRING,   eraseBatteryLog,          &_emptyChar},
+    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_emptyChar},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
@@ -103,8 +108,8 @@ MenuItem displayMenuItems[] = {
     {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
     {"BG Color",        MenuItem::COLOR,    adjustBgColor,            &_bgColor},
     {"FG Color",        MenuItem::COLOR,    adjustFgColor,            &_fgColor},
-    {"Print Digital",   MenuItem::BOOLEAN,  toggleDigitalDisplay,     &_printDigital},
-    {"Temp in C",       MenuItem::BOOLEAN,  toggleTempUnit,           &_temp_c},
+    {"Clock",      MenuItem::BOOLEAN,  toggleDigitalDisplay,     &_printDigital},
+    {"Temp unit",     MenuItem::BOOLEAN,  toggleTempUnit,           &_temp_c},
     {"UTC Offset",      MenuItem::INTEGER,  adjustUTCOffset,          &_UTC_OFF},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
@@ -114,6 +119,7 @@ MenuItem systemMenuItems[] = {
     {"Cal AD5933",      MenuItem::STRING,   calibrateAD5933,          &_emptyChar},
     {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_emptyChar},
     {"Print Bat Data",  MenuItem::STRING,   printBatteryLog,          &_emptyChar},
+    {"IP:",             MenuItem::STRING,   noop,                     &ipAddress},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
@@ -210,7 +216,6 @@ void initializeTFT() {
   oTouch.setAutoSleep(false);
   oTouch.setOperatingModeHardwareBased();
 }
-
 
 void resetDisplay(){
     tft.fillScreen(TFT_WHITE);
@@ -425,21 +430,55 @@ void printMenuLayout(TFT_eSprite* sprite){
             sprite->setTextSize(3);
             sprite->setTextColor(TFT_BLACK);
             sprite->drawString(item.name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+
+            String val;
+            int x_loc = 0;
+            int y_loc = y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2;
             
             // Depending on type, display the value on the right side
             switch (item.type) {
-                case MenuItem::COLOR:
+                case MenuItem::COLOR:{
                     sprite->fillRect(PIXEL_WIDTH - 50, y, 40, MENU_ITEM_HEIGHT, *(uint16_t*)(item.value));
                     break;
-                case MenuItem::BOOLEAN:
-                    sprite->drawString(*(bool*)(item.value) ? "YES" : "NO", PIXEL_WIDTH - 73, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+                }
+                case MenuItem::BOOLEAN:{
+                    val = *(bool*)(item.value) ? "True" : "False";
+                    // Set Bool String for specifioc menu items
+                    if(item.name == "Clock"){
+                        val = *(bool*)(item.value) ? "Digital" : "Analog";
+                    }
+                    if(item.name == "Temp unit"){
+                        val = *(bool*)(item.value) ? "C" : "F";
+                    }
+                    x_loc = PIXEL_WIDTH - (30 + sprite->textWidth(val));
+                    sprite->drawString(val, x_loc, y_loc);
                     break;
-                case MenuItem::INTEGER:
-                    sprite->drawString(String(*(int*)(item.value)), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+                }
+                case MenuItem::INTEGER:{
+                    int intValue = *(int*)(item.value);
+                    Serial.println("OG Int Menu Item (PrintMenu)");
+                    Serial.println(intValue);
+                    val = String(*(int*)(item.value));
+                    Serial.println("Int Menu Item (PrintMenu)");
+                    Serial.println(val);
+                    x_loc = PIXEL_WIDTH - (30 + sprite->textWidth(val));
+                    sprite->drawString(val, x_loc, y_loc);
                     break;
-                case MenuItem::FLOAT:
-                    sprite->drawString(String(*(float*)(item.value)), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+                }
+                case MenuItem::FLOAT:{                  
+                    val = String(*(float*)(item.value), 2);
+                    x_loc = PIXEL_WIDTH - (30 + sprite->textWidth(val));
+                    sprite->drawString(val, x_loc, y_loc);
                     break;
+                }
+                case MenuItem::STRING:{
+                    if (item.value != nullptr){    
+                      val = String((char*)(item.value));
+                      x_loc = PIXEL_WIDTH - (30 + sprite->textWidth(val));               
+                      sprite->drawString(val, x_loc, y_loc);
+                    }
+                    break;
+                }
             }
         }
     }
@@ -587,33 +626,39 @@ void printAlertSweatRate(TFT_eSprite* sprite){
 **********************************************************************************************/
 void updateBatterySprite(TFT_eSprite* sprite){
 
-  float bat_volt_mV = readBatteryVoltage();
-  float bat_volt = bat_volt_mV/1000;
- 
-  uint16_t* iconData;
+  // Static battery sprite stored across function calls
+  static uint16_t* iconData;
 
-  if (bat_volt >= 3.6) {
-    iconData = (uint16_t*)gImage_Full_Battery; 
-  } else if (bat_volt >= 3.5) {  // (3.6 + 3.2) / 2 = 3.4
-    iconData = (uint16_t*)gImage_Battery_2; 
-  } else if (bat_volt >= 3.4) {  // (3.2 + 2.8) / 2 = 3.0
-    iconData = (uint16_t*)gImage_Battery_1;
-  } else {
-    iconData = (uint16_t*)gImage_Battery_0;
-  }  
+  // Update battery sprite every 30 seconds
+  static unsigned long lastUpdateTime = 0;
+  unsigned long currentTime = millis();
+  if (currentTime - lastUpdateTime >= 30000 || lastUpdateTime == 0) {
+    float bat_volt_mV = readBatteryVoltage();
+    float bat_volt = bat_volt_mV/1000;
+     if (bat_volt >= 3.6) {
+      iconData = (uint16_t*)gImage_Full_Battery; 
+    } else if (bat_volt >= 3.5) {  // (3.6 + 3.2) / 2 = 3.4
+      iconData = (uint16_t*)gImage_Battery_2; 
+    } else if (bat_volt >= 3.4) {  // (3.2 + 2.8) / 2 = 3.0
+      iconData = (uint16_t*)gImage_Battery_1;
+    } else {
+      iconData = (uint16_t*)gImage_Battery_0;
+    } 
+    
+    // Debug: Displays battery voltage on top left of screen
+    if (false){
+      // Print Batery voltage in mV
+      sprite->fillRect(0, 0, 60, 10, _bgColor);
+      char bat[10];
+      snprintf(bat, sizeof(bat), "%.0fmV", bat_volt_mV); 
+      sprite->setTextSize(2);
+      sprite->setTextColor(_textColor, _bgColor); 
+      sprite->drawString(bat, 0, 0);
+    }
 
-  
-
-  if (false){
-    // Print Batery voltage in mV
-    sprite->fillRect(0, 0, 60, 10, _bgColor);
-    char bat[10];
-    snprintf(bat, sizeof(bat), "%.0fmV", bat_volt_mV); 
-    sprite->setTextSize(2);
-    sprite->setTextColor(_textColor, _bgColor); 
-    sprite->drawString(bat, 0, 0);
+    lastUpdateTime = currentTime;
   }
-  
+
   sprite->pushImage(295,0,25,10,iconData);
 }
 
@@ -645,6 +690,7 @@ void updateDisplay(FaceType* currentFace, TFT_eSprite* sprite){
         default:
             Serial.println("Update display currentface mismatch");
     }
+
     updateBatterySprite(sprite);
     sprite->pushSprite(0,0);
 }
@@ -691,6 +737,7 @@ void updateMenuDisplay(TFT_eSprite* sprite) {
   if (requestedMenuChange != nullptr) {
         activeMenu = requestedMenuChange;
         requestedMenuChange = nullptr;
+        menuOffset = 0;
     }
   printMenuLayout(sprite);
 
@@ -791,25 +838,22 @@ void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite) {
                     activeMenu[menuItemTouched].callback();
                     
                     // Given the type of value, cast and dereference it
-                    uint16_t valueToShow;  // This will hold the value to be displayed
                     switch(activeMenu[menuItemTouched].type) {
                         case MenuItem::COLOR:
-                            valueToShow = *(uint16_t*)activeMenu[menuItemTouched].value;
+                            refreshMenuItem(menuItemTouched, *(uint16_t*)activeMenu[menuItemTouched].value, sprite);
                             break;
                         case MenuItem::BOOLEAN:
-                            valueToShow = *(bool*)activeMenu[menuItemTouched].value ? 1 : 0;
+                            refreshMenuItem(menuItemTouched, *(bool*)activeMenu[menuItemTouched].value ? 1 : 0, sprite);
                             break;
                         case MenuItem::INTEGER:
-                            valueToShow = (uint16_t)*(long*)activeMenu[menuItemTouched].value;
+                            refreshMenuItem(menuItemTouched, *(int*)activeMenu[menuItemTouched].value, sprite);
                             break;
                         case MenuItem::FLOAT:
-                            valueToShow = (uint16_t)*(float*)activeMenu[menuItemTouched].value;
+                            refreshMenuItem(menuItemTouched, *(float*)activeMenu[menuItemTouched].value, sprite);
                             break;
-                        case MenuItem::STRING:
-                            valueToShow = *(char*)activeMenu[menuItemTouched].value;
+                        default:
                             break;
                     }
-                    refreshMenuItem(menuItemTouched, valueToShow, sprite);
                 } else {
                     Serial.println("Touched menu item out of bounds");
                 }
@@ -839,6 +883,46 @@ int getMenuSize(MenuItem* menu) {
     }
 }
 
+void refreshMenuItem(int index, bool value, TFT_eSprite* sprite) {
+
+    // Calculate the y-coordinate based on the index
+    int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
+    
+    // Redraw the menu item with the new value at its location
+    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _fgColor);  // Clear previous value
+    sprite->setTextSize(3);
+    sprite->setTextColor(TFT_BLACK);
+    sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+    sprite->drawString(String(value), PIXEL_WIDTH - 30 - sprite->textWidth(String(value)), y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
+}
+
+void refreshMenuItem(int index, float value, TFT_eSprite* sprite) {
+    // Calculate the y-coordinate based on the index
+    int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
+    
+    // Redraw the menu item with the new value at its location
+    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _fgColor);  // Clear previous value
+    sprite->setTextSize(3);
+    sprite->setTextColor(TFT_BLACK);
+    sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+    sprite->drawString(String(value), PIXEL_WIDTH - 30 - sprite->textWidth(String(value)), y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
+}
+
+void refreshMenuItem(int index, int value, TFT_eSprite* sprite) {
+    // Calculate the y-coordinate based on the index
+    int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
+
+    Serial.println("Int Menu Item (RefreshMenu)");
+    Serial.println(value);
+    
+    // Redraw the menu item with the new value at its location
+    sprite->fillRect(10, y, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT, _fgColor);  // Clear previous value
+    sprite->setTextSize(3);
+    sprite->setTextColor(TFT_BLACK);
+    sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
+    sprite->drawString(String(value), PIXEL_WIDTH - 30 - sprite->textWidth(String(value)), y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
+}
+
 void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite) {
     // Calculate the y-coordinate based on the index
     int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
@@ -848,10 +932,10 @@ void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite) {
     sprite->setTextSize(3);
     sprite->setTextColor(TFT_BLACK);
     sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
-    sprite->drawString(String(value), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
+    sprite->drawString(String(value), PIXEL_WIDTH - 30 - sprite->textWidth(String(value)), y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
 }
 
-void refreshMenuItem(int index, char value, TFT_eSprite* sprite) {
+void refreshMenuItem(int index, const char* value, TFT_eSprite* sprite) {
     // Calculate the y-coordinate based on the index
     int y = ARROW_SIZE + index * MENU_ITEM_HEIGHT;
     
@@ -860,7 +944,7 @@ void refreshMenuItem(int index, char value, TFT_eSprite* sprite) {
     sprite->setTextSize(3);
     sprite->setTextColor(TFT_BLACK);
     sprite->drawString(activeMenu[index].name, 15, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2);
-    sprite->drawString(String(value), PIXEL_WIDTH - 80, y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
+    sprite->drawString(String(value), PIXEL_WIDTH - 30 - strlen(value), y + MENU_ITEM_HEIGHT/2 - sprite->fontHeight()/2); 
 }
 
 /**********************************************************************************************
@@ -940,6 +1024,7 @@ void setResetMenu() {
     Serial.println("Requesting Reset Menu");
     requestedMenuChange = resetMenuItems;
 }
+
 /**********************************************************************************************
 *                                      Memory Read Writes
 *
@@ -985,3 +1070,4 @@ void eraseLoggedMenuSettings(){
   preferences.end();
 }
 
+void noop(){}

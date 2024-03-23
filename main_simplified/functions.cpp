@@ -1,8 +1,13 @@
+#include "IPAddress.h"
 #define DEBUG_ENABLED
 
 #include "functions.h"
 
 Preferences preferences;
+
+WiFiServer server(23);
+WiFiClient client;
+String ipAddress;
 
 //#define LOG_BATTERY_DATA       // Uncomment this line to log battery data
 
@@ -71,6 +76,45 @@ void initIO(){
   #ifdef DEBUG_ENABLED
       Serial.println("I2C initialized.");
   #endif
+}
+
+void initWiFi(){
+  int retry = 0;
+  const int retry_count = 3;
+  // Connect to WiFi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED && ++retry < retry_count) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  
+  Serial.println("Connected to WiFi");
+  Serial.println("IP Address: ");
+  Serial.println(WiFi.localIP());
+  ipAddress = WiFi.localIP().toString();  \
+  server.begin();
+}
+
+void checkWiFiClient() {
+  // Check if a client is currently connected
+  if (!client || !client.connected()) {
+    if(client) {
+      client.stop(); // Properly close the existing connection
+      Serial.println("Client disconnected.");
+    }
+    client = server.available(); // Check for new client connections
+    if(client) {
+      Serial.println("Client connected.");
+      wifiSerial("Hello from the Moisture Mavericks!");
+    }
+  }
+}
+
+void wifiSerial(const String& str) {
+    String messageWithNewLine = str + "\n"; 
+    if (client.connected()) {
+        client.write((const uint8_t*)messageWithNewLine.c_str(), messageWithNewLine.length());
+    }
 }
 
 void initializeNTP() {
@@ -188,17 +232,13 @@ void logBatteryToNVM(uint32_t bat_volt) {
     // Write sensor data to memory
     bool putSuccess  = preferences.putString(key.c_str(), newEntry);
 
+    wifiSerial(newEntry);
+
     if (putSuccess){
-      Serial.println("Battery data logged successfully");
       preferences.putInt("index", log_index+1);
-    }
-    else {
-      Serial.println("Battery data failed to log");
     }
     
     preferences.end();
-
-    //printBatteryLog();
 }
 
 void printBatteryLog() {
@@ -216,6 +256,7 @@ void printBatteryLog() {
         break;
       }
       Serial.println(logged_data);
+      wifiSerial(logged_data);
       i++;
     }
     preferences.end(); 
@@ -223,7 +264,7 @@ void printBatteryLog() {
 }
 
 void eraseBatteryLog(){
-  Serial.println("Clearing menu settings from memory");
+  Serial.println("Clearing battery log from memory");
   preferences.begin("bat_log");
   preferences.clear();
   preferences.end();

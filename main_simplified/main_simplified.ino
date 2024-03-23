@@ -22,7 +22,9 @@ touchEvent currTouch;
 FaceType currentFace = FaceType::Clock;
 
 
+
 void setup() {
+  
 
   Serial.begin(115200);
   delay(1000); // Delay to let serial initialization complete
@@ -35,6 +37,7 @@ void setup() {
   initMCU();
   initializeTempSensors();
   initialize5933();
+
   printBatteryLog();
   printSensorLog();
 
@@ -53,6 +56,7 @@ void loop() {
   sleep_device.tick();
   sleep_screen.tick();
   oTouch.control();
+  checkWiFiClient();
 
   if (oTouch.hadGesture() || oTouch.hadTouch()) {
       currTouch = getTouch();
@@ -107,19 +111,8 @@ void initMCU(){
   loadMenuSettings();
   initializeTFT();
   tft.drawString("Initializing...",5,5);
-  int retry = 0;
-  const int retry_count = 3;
-  // Connect to WiFi
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED && ++retry < retry_count) {
-    delay(1000);
-    tft.drawString("Connecting to WiFi...",5,25);
-    Serial.println("Connecting to WiFi...");
-  }
-  tft.drawString("Connected to WiFi",5,45);
-  Serial.println("Connected to WiFi");
-
-  // Initialize NTP
+  tft.drawString("Connecting to WiFi...",5,25);
+  initWiFi();
   tft.drawString("Configuring RTC",5,65);
   initializeNTP();
 

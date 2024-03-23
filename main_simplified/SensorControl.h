@@ -17,8 +17,8 @@ extern HTU31D::THData sensorData_ambi;
 
 extern float skinRes;
 extern float sweatRate;
-extern float _height;
-extern float _weight;
+extern int _height;
+extern int _weight;
 
 extern int updateRate;
 
