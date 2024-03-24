@@ -10,11 +10,12 @@
 
 #define DEBUG_ENABLED
 
-/* Configure additional IO*/
+/* Configure button IO*/
 bool button_pressed = false;
 bool sleep_wake_pressed = false;
 bool screen_state = false;
 bool previous_screen_state = false;
+bool screen_enabled = true;
 OneButton sleep_device(PIN_BUTTON_2, true, false);
 OneButton sleep_screen(PIN_BUTTON_1, true, false);
 
@@ -53,31 +54,49 @@ void setup() {
 
 
 void loop() {
+  // Check button states
   sleep_device.tick();
   sleep_screen.tick();
-  oTouch.control();
+  
+  // Check wifi connections
   checkWiFiClient();
 
-  if (oTouch.hadGesture() || oTouch.hadTouch()) {
-      currTouch = getTouch();
-      delay(10);
-      switch (currTouch.gesture) {
-        case CST816Touch::GESTURE_LEFT:
-        case CST816Touch::GESTURE_RIGHT:
-        case CST816Touch::GESTURE_TOUCH_BUTTON:
-          // Swap faces with specific gestures
-          handleGestures(&currentFace, &currTouch);
-          break;
-        default:
-          #ifdef DEBUG_ENABLED
-            Serial.println("Handling touch coordinates");
-          #endif
-          // handle face specific touches if anything else
-          handleTouchForState(&currentFace, &currTouch, &spr);
-      }
+  // Disable touch interface while screen is disabled
+  if (screen_enabled){
+    oTouch.control();
+    delay(2);
+    if (oTouch.hadGesture() || oTouch.hadTouch()) {
+        currTouch = getTouch();
+        delay(10);
+        switch (currTouch.gesture) {
+          case CST816Touch::GESTURE_LEFT:
+          case CST816Touch::GESTURE_RIGHT:
+          case CST816Touch::GESTURE_TOUCH_BUTTON:
+            // Swap faces with specific gestures
+            handleGestures(&currentFace, &currTouch);
+            break;
+          default:
+            #ifdef DEBUG_ENABLED
+              Serial.println("Handling touch coordinates");
+            #endif
+            // handle face specific touches if anything else
+            handleTouchForState(&currentFace, &currTouch, &spr);
+        }
+    }
+    updateDisplay(&currentFace, &spr);
+  } else {
+    // Call functions needed to process data for logging 
+    // This is done in updateDisplay but if we want to continue
+    // logging while the screen is off we have to call these manually
+    
+    // Read sensors 
+    updateSensors(false);
+    // Calling Read Battery Voltage will log battery level if logging is enabled
+    readBatteryVoltage();
   }
      
-  updateDisplay(&currentFace, &spr);
+
+  
   
   if (sleep_wake_pressed){
     Serial.println("Sleep_wake button pressed");
@@ -94,10 +113,12 @@ void loop() {
   //Go into screen state if only on state change
   if (screen_state != previous_screen_state){
     if (screen_state){
-      Serial.println("Screen is disabled");
+      Serial.println("Screen is disabled");      
+      screen_enabled = false;
       tft.sleep(screen_state);
     } else {
       Serial.println("Screen is enabled");
+      screen_enabled = true;
       tft.sleep(screen_state);
     }
     previous_screen_state = screen_state;
