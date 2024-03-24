@@ -27,6 +27,7 @@ uint16_t _bgColor;
 int _fgColorIndex = 0;
 uint16_t _fgColor;
 bool _printDigital;
+bool _wifi;
 bool _temp_c;
 long _UTC_OFF;
 uint16_t _heatIndexColor;
@@ -49,6 +50,7 @@ void toggleTempUnit();
 void toggleDigitalDisplay();
 void adjustHeight();
 void adjustWeight();
+void toggleWifi();
 void refreshMenuItem(int index, uint16_t value, TFT_eSprite* sprite);
 void refreshMenuItem(int index, int value, TFT_eSprite* sprite);
 void refreshMenuItem(int index, float value, TFT_eSprite* sprite);
@@ -108,8 +110,8 @@ MenuItem displayMenuItems[] = {
     {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
     {"BG Color",        MenuItem::COLOR,    adjustBgColor,            &_bgColor},
     {"FG Color",        MenuItem::COLOR,    adjustFgColor,            &_fgColor},
-    {"Clock",      MenuItem::BOOLEAN,  toggleDigitalDisplay,     &_printDigital},
-    {"Temp unit",     MenuItem::BOOLEAN,  toggleTempUnit,           &_temp_c},
+    {"Clock",           MenuItem::BOOLEAN,  toggleDigitalDisplay,     &_printDigital},
+    {"Temp unit",       MenuItem::BOOLEAN,  toggleTempUnit,           &_temp_c},
     {"UTC Offset",      MenuItem::INTEGER,  adjustUTCOffset,          &_UTC_OFF},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
@@ -119,6 +121,7 @@ MenuItem systemMenuItems[] = {
     {"Cal AD5933",      MenuItem::STRING,   calibrateAD5933,          &_emptyChar},
     {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_emptyChar},
     {"Print Bat Data",  MenuItem::STRING,   printBatteryLog,          &_emptyChar},
+    {"WiFi",            MenuItem::BOOLEAN,  toggleWifi,               &_wifi},
     {"IP:",             MenuItem::STRING,   noop,                     &ipAddress},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
@@ -442,7 +445,7 @@ void printMenuLayout(TFT_eSprite* sprite){
                     break;
                 }
                 case MenuItem::BOOLEAN:{
-                    val = *(bool*)(item.value) ? "True" : "False";
+                    val = *(bool*)(item.value) ? "Enabled" : "Disabled";
                     // Set Bool String for specifioc menu items
                     if(item.name == "Clock"){
                         val = *(bool*)(item.value) ? "Digital" : "Analog";
@@ -1025,6 +1028,10 @@ void setResetMenu() {
     requestedMenuChange = resetMenuItems;
 }
 
+void toggleWifi(){
+  _wifi = !_wifi;
+}
+
 /**********************************************************************************************
 *                                      Memory Read Writes
 *
@@ -1043,6 +1050,7 @@ void loadMenuSettings(){
     _UTC_OFF = preferences.getInt("UTCoff", -4);
     _height = preferences.getInt("height", 72); // 6*12 inches as default
     _weight = preferences.getInt("weight", 155);
+    _wifi = preferences.getBool("wifi", true);
 
     preferences.end();
 }
@@ -1059,6 +1067,7 @@ void writeMenuSettings(){
     preferences.putInt("UTCoff", _UTC_OFF);
     preferences.putInt("height", _height);
     preferences.putInt("weight", _weight);
+    preferences.putBool("wifi", _wifi);
 
     preferences.end();
 }

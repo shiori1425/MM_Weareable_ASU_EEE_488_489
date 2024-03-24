@@ -14,6 +14,8 @@
 extern FaceType prevFace;
 extern FaceType nextFace;
 
+extern bool _wifi;
+
 using namespace MDO;
 
 extern TFT_eSPI tft;

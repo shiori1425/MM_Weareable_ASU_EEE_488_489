@@ -59,7 +59,12 @@ void loop() {
   sleep_screen.tick();
   
   // Check wifi connections
-  checkWiFiClient();
+  if(_wifi){
+    // check if connected, reconnects if not
+    initWiFi();
+    // check clients
+    checkWiFiClient();
+  }
 
   // Disable touch interface while screen is disabled
   if (screen_enabled){
@@ -133,9 +138,14 @@ void initMCU(){
   initializeTFT();
   tft.drawString("Initializing...",5,5);
   tft.drawString("Connecting to WiFi...",5,25);
-  initWiFi();
-  tft.drawString("Configuring RTC",5,65);
-  initializeNTP();
+  if(_wifi){
+    initWiFi();
+
+    // Dont use NTP if WiFi is off
+    tft.drawString("Configuring RTC",5,65);
+    initializeNTP();
+  }
+  
 
 
   // Create base sprite

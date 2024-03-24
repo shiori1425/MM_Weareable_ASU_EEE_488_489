@@ -79,33 +79,50 @@ void initIO(){
 }
 
 void initWiFi(){
-  int retry = 0;
-  const int retry_count = 3;
-  // Connect to WiFi
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED && ++retry < retry_count) {
-    delay(1000);
-    Serial.println("Connecting to WiFi...");
+  // Check if wifi is connected already so we can all this func to reconnect as well
+  if (!WiFi.isConnected()){
+    int retry = 0;
+    const int retry_count = 5;
+    // Connect to WiFi
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED && ++retry < retry_count) {
+      delay(1000);
+      Serial.println("Connecting to WiFi...");
+      #ifdef DEBUG_ENABLED
+        delay(5);
+        Serial.println("Wifi Status:"); 
+        Serial.println(WiFi.status());
+      #endif      
+    }
+    if (WiFi.isConnected()) {
+      Serial.println("Connected to WiFi");
+      Serial.println("IP Address: ");
+      Serial.println(WiFi.localIP());
+      Serial.print("RRSI (signal strength): ");
+      Serial.println(WiFi.RSSI());
+      
+      // Store IP address to display to user on device
+      ipAddress = WiFi.localIP().toString();  
+      server.begin();
+    }
   }
-  
-  Serial.println("Connected to WiFi");
-  Serial.println("IP Address: ");
-  Serial.println(WiFi.localIP());
-  ipAddress = WiFi.localIP().toString();  \
-  server.begin();
 }
 
 void checkWiFiClient() {
-  // Check if a client is currently connected
-  if (!client || !client.connected()) {
-    if(client) {
-      client.stop(); // Properly close the existing connection
-      Serial.println("Client disconnected.");
-    }
-    client = server.available(); // Check for new client connections
-    if(client) {
-      Serial.println("Client connected.");
-      wifiSerial("Hello from the Moisture Mavericks!");
+  
+  // Check for clients only if wifi is connected
+  if(WiFi.isConnected()){
+    // Check if a client is currently connected
+    if (!client || !client.connected()) {
+      if(client) {
+        client.stop(); // Properly close the existing connection
+        Serial.println("Client disconnected.");
+      }
+      client = server.available(); // Check for new client connections
+      if(client) {
+        Serial.println("Client connected.");
+        wifiSerial("Hello from the Moisture Mavericks!");
+      }
     }
   }
 }
