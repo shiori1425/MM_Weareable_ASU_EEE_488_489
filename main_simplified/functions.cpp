@@ -5,11 +5,12 @@
 
 Preferences preferences;
 
+long _UTC_OFF;
+bool _battery_logging;
+
 WiFiServer server(23);
 WiFiClient client;
 String ipAddress;
-
-//#define LOG_BATTERY_DATA       // Uncomment this line to log battery data
 
 
 /* Setup I2C bus connections*/
@@ -100,7 +101,7 @@ void initWiFi(){
       Serial.println(WiFi.localIP());
       Serial.print("RRSI (signal strength): ");
       Serial.println(WiFi.RSSI());
-      
+
       // Store IP address to display to user on device
       ipAddress = WiFi.localIP().toString();  
       server.begin();
@@ -143,6 +144,15 @@ void initializeNTP() {
   sntp_setservername(0, "pool.ntp.org");
   sntp_init();
 
+  set_time_from_wifi();
+
+  #ifdef DEBUG_ENABLED
+      Serial.println("NTP initialization completed.");
+  #endif
+}
+
+void set_time_from_wifi(){
+
   // Wait till NTP sets the time
   time_t now = 0;
   struct tm timeinfo = { 0 };
@@ -165,13 +175,9 @@ void initializeNTP() {
       #endif
   }
 
-  // read offset from Flash on setup in future....
-  const long EST = -4 * 3600;  // 4 hours * 3600 seconds/hour
-  adjustTime(EST);
-
-  #ifdef DEBUG_ENABLED
-      Serial.println("NTP initialization completed.");
-  #endif
+    // read offset from Flash on setup in future....
+  const long TZ = _UTC_OFF * 3600;  // 4 hours * 3600 seconds/hour
+  adjustTime(TZ);
 }
 
 double calculateHeatIndex(double temp, double humidity) {
@@ -216,9 +222,9 @@ float readBatteryVoltage(){
   // Log Battery voltage every 2 minutes if enables
   if (currentTime - lastUpdateTime >= 90000 || lastUpdateTime == 0) {
     // Enable the battery level logging by 
-    #ifdef LOG_BATTERY_DATA
+    if(_battery_logging){
       logBatteryToNVM(v1);
-    #endif
+    }
     lastUpdateTime = currentTime;
   }
   
@@ -285,4 +291,13 @@ void eraseBatteryLog(){
   preferences.begin("bat_log");
   preferences.clear();
   preferences.end();
+}
+
+void toggleBatteryLogging(){
+  _battery_logging = !_battery_logging;
+    if (_battery_logging) {
+    Serial.println("Battery Logging is now Enabled");
+  } else{
+    Serial.println("Battery Logging is now Disabled");
+  }
 }

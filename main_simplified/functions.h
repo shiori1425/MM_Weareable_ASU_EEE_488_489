@@ -18,6 +18,9 @@ extern WiFiServer server;
 extern WiFiClient client;
 extern String ipAddress;
 
+extern long _UTC_OFF;
+extern bool _battery_logging;
+
 extern "C" {
   #include "lwip/apps/sntp.h"
 }
@@ -34,6 +37,7 @@ void initIO();
 void initWiFi();
 void checkWiFiClient();
 void initializeNTP();
+void set_time_from_wifi();
 void configureWiFiHost();
 double calculateHeatIndex(double temp, double humidity);
 float readBatteryVoltage();
@@ -41,7 +45,7 @@ void logBatteryToNVM(uint32_t bat_volt);
 void printBatteryLog();
 void eraseBatteryLog();
 void wifiSerial(const String& str);
-
+void toggleBatteryLogging();
 
 
 #endif // FUNCTIONS_H

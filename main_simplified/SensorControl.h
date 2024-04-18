@@ -19,6 +19,8 @@ extern float skinRes;
 extern float sweatRate;
 extern int _height;
 extern int _weight;
+extern float _sweatRateCal;
+extern bool _sensor_logging;
 
 extern int updateRate;
 
@@ -35,9 +37,11 @@ void calcSweatRate(float* sweatRate);
 void updateSensors(bool forceUpdate = false);
 void frequencySweepRaw(float* res);
 void calibrateAD5933();
+void zeroSweatRate();
 void printSensorLog();
 void readCalConstantsFromMemory();
 void writeCalConstantsToMemory();
 void eraseLoggedSensorData();
+void toggleSensorLogging();
 
 #endif  // SENSORCONTROL_H

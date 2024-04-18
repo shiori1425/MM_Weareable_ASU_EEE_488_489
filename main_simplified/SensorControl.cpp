@@ -3,8 +3,6 @@
 
 #define DEBUG_ENABLED
 
-#define LOG_SENSOR_DATA
-
 /* Temp/Humidity Sensor Setup*/
 HTU31D* htu31d_body = new HTU31D();
 HTU31D* htu31d_ambi = new HTU31D();
@@ -14,6 +12,8 @@ HTU31D::THData sensorData_ambi;
 float sweatRate = 0;
 int _height;
 int _weight;
+float _sweatRateCal;
+bool _sensor_logging;
 
 /* BioImpedance Sensor Setup*/
 #define START_FREQ  (49500)
@@ -97,16 +97,21 @@ void updateSensors(bool forceUpdate){
   if (currentTime - lastUpdateTime >= updateRate || lastUpdateTime == 0 || forceUpdate) {
     // Read Body Temp Sensor
     sensorData_body = readSensors(htu31d_body); 
+
+
+
     // Read Ambient Temp Sensor
     sensorData_ambi = readSensors(htu31d_ambi); 
+
+
     // Read Skin Resistance
     frequencySweepRaw(&skinRes);
     // Calc Sweat Rate
     calcSweatRate(&sweatRate);
     // Log new data
-    #ifdef LOG_SENSOR_DATA
+    if (_sensor_logging){
       logSensorDataToNVM();
-    #endif
+    }
 
     // Update the last update time.
     lastUpdateTime = currentTime;    
@@ -344,11 +349,8 @@ void calcSweatRate(float* sweatRate){
 
     // Calculate sweat rate (mL/min)
     float calculatedSweatRate = 147 + 1.527 * Ereq - 0.87 * Emax;
-    calculatedSweatRate = calculatedSweatRate / (60 * SWEAT_RATE_CAL_FACTOR);
+    calculatedSweatRate = calculatedSweatRate / (60);
     // An average sweat rate during exersice is 15 to 25 mL/min
-
-    // Assign the calculated value to the pointer
-    //*sweatRate = (calculatedSweatRate > 0) ? calculatedSweatRate : 0;
     *sweatRate = calculatedSweatRate; 
     #ifdef DEBUG_ENABLED
       // Debug print values 
@@ -368,6 +370,45 @@ void calcSweatRate(float* sweatRate){
     return;
 }
 
+void calcSweatRateDebug(float* sweatRate){
+
+    float metabolic_rate = 500;
+    float SWEAT_RATE_CAL_FACTOR = 1;
+    // Convert height and weight
+    // 1 in = 2.54cm
+    float height_in_cm = _height * 2.54;
+    float weight_in_kg = _weight * 0.453592;
+
+    // Calculate Body Surface Area (BSA) using Du Bois formula  (m^2)
+    float BSA = 0.007184 * pow(height_in_cm, 0.725) * pow(weight_in_kg, 0.425);
+
+    // Calculate Emax
+    float Emax = (sensorData_body.humidity * BSA * h_c) * (1 - skinRes / REF_RESIST);
+
+    // Calculate Ereq
+    float H_c = 6.45 * BSA;
+    float H_r = 1.5 * BSA;
+    float H_l = 0.04 * BSA * stefan_boltzmann_constant * (pow(sensorData_body.temperature, 4) - pow(23, 4));
+    float Ereq = metabolic_rate - H_c - H_r - H_l;
+
+    // Calculate sweat rate (mL/min)
+    float calculatedSweatRate = 147 + 1.527 * Ereq - 0.87 * Emax;
+    calculatedSweatRate = calculatedSweatRate / (60);
+    // An average sweat rate during exersice is 15 to 25 mL/min
+    // coerce sweat rate to normal range and calibrate it to a zero value
+    *sweatRate = 1 + (calculatedSweatRate/SWEAT_RATE_CAL_FACTOR-1)*(20-1)/(1.5-1);
+
+    #ifdef DEBUG_ENABLED
+      // Debug print values 
+      Serial.println("-------  Calculate Sweat -------");
+      printf("Emax: %f\n", Emax);
+      printf("Ereq: %f\n", Ereq);
+      printf("Calculated sweatRate: %f\n", calculatedSweatRate); 
+      printf("sweatRate out: %f\n", *sweatRate); 
+      Serial.println("------------------------------");
+    #endif
+    return;
+}
 /* Data Logging Functions */
 
 void readCalConstantsFromMemory(){
@@ -486,4 +527,18 @@ void eraseCalConstants(){
   preferences.begin("caldata");
   preferences.clear();
   preferences.end();
+}
+
+void zeroSweatRate(){
+  _sweatRateCal = 0;
+  _sweatRateCal = sweatRate;
+}
+
+void toggleSensorLogging(){
+  _sensor_logging = !_sensor_logging;
+  if (_sensor_logging) {
+    Serial.println("Sensor Logging is now Enabled");
+  } else{
+    Serial.println("Sensor Logging is now Disabled");
+  }
 }

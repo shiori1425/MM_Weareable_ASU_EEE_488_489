@@ -29,7 +29,8 @@ uint16_t _fgColor;
 bool _printDigital;
 bool _wifi;
 bool _temp_c;
-long _UTC_OFF;
+
+
 uint16_t _heatIndexColor;
 const char* _calExec = "Execute";
 const char* _emptyChar = nullptr;
@@ -64,36 +65,22 @@ void setResetMenu();
 void noop();
 int getMenuSize(MenuItem* menu);
 
-MenuItem allMenuItems[] = {
-    //{"Label",         MenuItem::xxxx,    callback,       value}
-    {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
-    {"BG Color",        MenuItem::COLOR,    adjustBgColor,            &_bgColor},
-    {"FG Color",        MenuItem::COLOR,    adjustFgColor,            &_fgColor},
-    {"Print Digital",   MenuItem::BOOLEAN,  toggleDigitalDisplay,     &_printDigital},
-    {"Temp in C",       MenuItem::BOOLEAN,  toggleTempUnit,           &_temp_c},
-    {"UTC Offset",      MenuItem::INTEGER,  adjustUTCOffset,          &_UTC_OFF},
-    {"Height (in)",     MenuItem::FLOAT,    adjustHeight,             &_height},
-    {"Weight (lbs)",    MenuItem::FLOAT,    adjustWeight,             &_weight},
-    {"Cal AD5933",      MenuItem::STRING,   calibrateAD5933,          &_calExec},
-    {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_emptyChar},
-    {"",                MenuItem::STRING,   printSensorLog,           &_emptyChar},
-    {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_emptyChar},
-    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_emptyChar},
-    {"Reset Bat Data",  MenuItem::STRING,   eraseBatteryLog,          &_emptyChar},
-};
-
 MenuItem bodyParamsMenuItems[] = {
     //{"Label",         MenuItem::xxxx,     callback,                 value}
     {"Height (in)",     MenuItem::INTEGER,    adjustHeight,             &_height},
     {"Weight (lbs)",    MenuItem::INTEGER,    adjustWeight,             &_weight},
-    {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
+    {"Back",            MenuItem::STRING,     setTopLevelMenu,          &_emptyChar}
 };
 
-MenuItem resetMenuItems[] = {
+MenuItem sensorMenuItems[] = {
     //{"Label",         MenuItem::xxxx,    callback,       value}
+    {"Sen.Log",         MenuItem::BOOLEAN,  toggleSensorLogging,      &_sensor_logging},
+    {"Bat.Log",         MenuItem::BOOLEAN,  toggleBatteryLogging,     &_battery_logging},
+    {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_emptyChar},
+    {"Print Bat Data",  MenuItem::STRING,   printBatteryLog,          &_emptyChar},
+    {"   -- Reset --  ",MenuItem::STRING,   noop,                     &_emptyChar},
     {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_emptyChar},
     {"Reset Bat Data",  MenuItem::STRING,   eraseBatteryLog,          &_emptyChar},
-    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_emptyChar},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
@@ -119,10 +106,12 @@ MenuItem displayMenuItems[] = {
 MenuItem systemMenuItems[] = {
     //{"Label",         MenuItem::xxxx,     callback,                 value}
     {"Cal AD5933",      MenuItem::STRING,   calibrateAD5933,          &_emptyChar},
-    {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_emptyChar},
-    {"Print Bat Data",  MenuItem::STRING,   printBatteryLog,          &_emptyChar},
+    {"Zero Sweat Rate", MenuItem::STRING,   zeroSweatRate,            &_emptyChar},
+    {"Resync Time",     MenuItem::STRING,   set_time_from_wifi,       &_emptyChar},
     {"WiFi",            MenuItem::BOOLEAN,  toggleWifi,               &_wifi},
     {"IP:",             MenuItem::STRING,   noop,                     &ipAddress},
+    {"   -- Reset --  ",MenuItem::STRING,   noop,                     &_emptyChar},
+    {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_emptyChar},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
@@ -131,8 +120,7 @@ MenuItem topMenuItems[] = {
     {"Display",       MenuItem::STRING,     setDisplayMenu,           &_emptyChar},
     {"Body Params",   MenuItem::STRING,     setBodyParamsMenu,        &_emptyChar},
     {"System",        MenuItem::STRING,     setSystemMenu,            &_emptyChar},
-    {"Reset",         MenuItem::STRING,     setResetMenu,             &_emptyChar},
-
+    {"Sensor Ctrl",   MenuItem::STRING,     setResetMenu,             &_emptyChar},
 };
 
 MenuItem* activeMenu = topMenuItems;
@@ -459,11 +447,7 @@ void printMenuLayout(TFT_eSprite* sprite){
                 }
                 case MenuItem::INTEGER:{
                     int intValue = *(int*)(item.value);
-                    Serial.println("OG Int Menu Item (PrintMenu)");
-                    Serial.println(intValue);
                     val = String(*(int*)(item.value));
-                    Serial.println("Int Menu Item (PrintMenu)");
-                    Serial.println(val);
                     x_loc = PIXEL_WIDTH - (30 + sprite->textWidth(val));
                     sprite->drawString(val, x_loc, y_loc);
                     break;
@@ -575,7 +559,7 @@ void printSweatRate(TFT_eSprite* sprite) {
   
     // Convert sweatRate to a string with 2 decimal places
     char sweatRateStr[15]; 
-    dtostrf(sweatRate, 0, 2, sweatRateStr);
+    dtostrf(sweatRate - _sweatRateCal, 0, 2, sweatRateStr);
     strcat(sweatRateStr, " mL/min");
 
     Serial.println("Sweat Rate");
@@ -866,12 +850,10 @@ void handleTouchForMenuDisplay(touchEvent* touch, TFT_eSprite* sprite) {
 }
 
 int getMenuSize(MenuItem* menu) {
-    if (menu == allMenuItems) {
-        return sizeof(allMenuItems) / sizeof(allMenuItems[0]);
-    } else if (menu == bodyParamsMenuItems) {
+    if (menu == bodyParamsMenuItems) {
         return sizeof(bodyParamsMenuItems) / sizeof(bodyParamsMenuItems[0]);
-    } else if (menu == resetMenuItems) {
-        return sizeof(resetMenuItems) / sizeof(resetMenuItems[0]);
+    } else if (menu == sensorMenuItems) {
+        return sizeof(sensorMenuItems) / sizeof(sensorMenuItems[0]);
     } else if (menu == colorMenuItems) {
         return sizeof(colorMenuItems) / sizeof(colorMenuItems[0]);
     } else if (menu == displayMenuItems) {
@@ -1025,7 +1007,7 @@ void setBodyParamsMenu() {
 
 void setResetMenu() {
     Serial.println("Requesting Reset Menu");
-    requestedMenuChange = resetMenuItems;
+    requestedMenuChange = sensorMenuItems;
 }
 
 void toggleWifi(){
@@ -1051,6 +1033,9 @@ void loadMenuSettings(){
     _height = preferences.getInt("height", 72); // 6*12 inches as default
     _weight = preferences.getInt("weight", 155);
     _wifi = preferences.getBool("wifi", true);
+    _sweatRateCal = preferences.getFloat("_sweatRateCal", 0);
+    _sensor_logging = preferences.getBool("sensorLogging", true);
+    _battery_logging = preferences.getBool("batteryLogging", false);
 
     preferences.end();
 }
@@ -1068,6 +1053,9 @@ void writeMenuSettings(){
     preferences.putInt("height", _height);
     preferences.putInt("weight", _weight);
     preferences.putBool("wifi", _wifi);
+    preferences.putFloat("_sweatRateCal", _sweatRateCal);
+    preferences.putBool("sensorLogging", _sensor_logging);
+    preferences.putBool("batteryLogging", _battery_logging);
 
     preferences.end();
 }
