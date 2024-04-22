@@ -3,7 +3,6 @@
 #define WIFI_SSID                   "WLAN Name"
 #define WIFI_PASSWORD               "************"
 
-
 /*ESP32S3*/
 #define PIN_LCD_BL                   38
 
