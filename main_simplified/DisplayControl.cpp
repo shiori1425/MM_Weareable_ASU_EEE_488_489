@@ -89,14 +89,6 @@ MenuItem sensorMenuItems[] = {
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
-MenuItem colorMenuItems[] = {
-    //{"Label",         MenuItem::xxxx,     callback,                 value}
-    {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
-    {"BG Color",        MenuItem::COLOR,    adjustBgColor,            &_bgColor},
-    {"FG Color",        MenuItem::COLOR,    adjustFgColor,            &_fgColor},
-    {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
-};
-
 MenuItem displayMenuItems[] = {
     //{"Label",         MenuItem::xxxx,     callback,                 value}
     {"Text Color",      MenuItem::COLOR,    adjustTextColor,          &_textColor},
@@ -862,8 +854,6 @@ int getMenuSize(MenuItem* menu) {
         return sizeof(bodyParamsMenuItems) / sizeof(bodyParamsMenuItems[0]);
     } else if (menu == sensorMenuItems) {
         return sizeof(sensorMenuItems) / sizeof(sensorMenuItems[0]);
-    } else if (menu == colorMenuItems) {
-        return sizeof(colorMenuItems) / sizeof(colorMenuItems[0]);
     } else if (menu == displayMenuItems) {
         return sizeof(displayMenuItems) / sizeof(displayMenuItems[0]);
     } else if (menu == systemMenuItems) {
