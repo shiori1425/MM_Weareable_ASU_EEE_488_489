@@ -82,9 +82,10 @@ MenuItem sensorMenuItems[] = {
     {"Bat.Log",         MenuItem::BOOLEAN,  toggleBatteryLogging,     &_battery_logging},
     {"Print Log Data",  MenuItem::STRING,   printSensorLog,           &_emptyChar},
     {"Print Bat Data",  MenuItem::STRING,   printBatteryLog,          &_emptyChar},
-    {"   -- Reset --  ",MenuItem::STRING,   noop,                     &_emptyChar},
+    {"   -----------  ",MenuItem::STRING,   noop,                     &_emptyChar},
     {"Reset Log Data",  MenuItem::STRING,   eraseLoggedSensorData,    &_emptyChar},
     {"Reset Bat Data",  MenuItem::STRING,   eraseBatteryLog,          &_emptyChar},
+    {"   -----------  ",MenuItem::STRING,   noop,                     &_emptyChar},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
@@ -116,8 +117,9 @@ MenuItem systemMenuItems[] = {
     {"Resync Time",     MenuItem::STRING,   set_time_from_wifi,       &_emptyChar},
     {"WiFi",            MenuItem::BOOLEAN,  toggleWifi,               &_wifi},
     {"IP:",             MenuItem::STRING,   noop,                     &ipAddress},
-    {"   -- Reset --  ",MenuItem::STRING,   noop,                     &_emptyChar},
+    {"   -----------  ",MenuItem::STRING,   noop,                     &_emptyChar},
     {"Reset Settings",  MenuItem::STRING,   eraseLoggedMenuSettings,  &_emptyChar},
+    {"   -----------  ",MenuItem::STRING,   noop,                     &_emptyChar},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
