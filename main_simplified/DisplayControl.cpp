@@ -18,8 +18,10 @@ const int SCROLLBAR_WIDTH = 10;  // Width of the scrollbar
 int menuOffset = 0;  // Which item is at the top
 int UTC_MAX_OFFSET = 13;  // This will give UTC values from -6 to +6
 
+
 //Preferences preferences;
 
+int _backlightBrightness = 255;  // Range from 0 (off) to 255 (maximum brightness)
 int _textColorIndex = 0;
 uint16_t _textColor;
 int _bgColorIndex = 0;
@@ -64,6 +66,8 @@ void setBodyParamsMenu();
 void setResetMenu();
 void noop();
 int getMenuSize(MenuItem* menu);
+void decreaseBacklightBrightness();
+void increaseBacklightBrightness();
 
 MenuItem bodyParamsMenuItems[] = {
     //{"Label",         MenuItem::xxxx,     callback,                 value}
@@ -100,6 +104,8 @@ MenuItem displayMenuItems[] = {
     {"Clock",           MenuItem::BOOLEAN,  toggleDigitalDisplay,     &_printDigital},
     {"Temp unit",       MenuItem::BOOLEAN,  toggleTempUnit,           &_temp_c},
     {"UTC Offset",      MenuItem::INTEGER,  adjustUTCOffset,          &_UTC_OFF},
+    {"Inc LCD BL",      MenuItem::STRING,   increaseBacklightBrightness, &_emptyChar},
+    {"Dec LCD BL",      MenuItem::STRING,   decreaseBacklightBrightness, &_emptyChar},
     {"Back",            MenuItem::STRING,   setTopLevelMenu,          &_emptyChar}
 };
 
@@ -195,9 +201,9 @@ void initializeTFT() {
   left_center = width*0.25;
   right_center = width*0.75;
 
-  ledcSetup(0, 2000, 8);
+  ledcSetup(0, 5000, 8);
   ledcAttachPin(PIN_LCD_BL, 0);
-  ledcWrite(0, 255);
+  ledcWrite(0, _backlightBrightness);
 
   spr.createSprite(PIXEL_WIDTH, PIXEL_HEIGHT);
 
@@ -1014,6 +1020,25 @@ void toggleWifi(){
   _wifi = !_wifi;
 }
 
+void adjustBacklightBrightness(int brightness) {
+    _backlightBrightness = brightness;
+    ledcWrite(0, brightness);
+    Serial.print("Setting Bcaklight to (255 max): ");
+    Serial.print(_backlightBrightness);
+}
+
+void increaseBacklightBrightness() {
+    if (_backlightBrightness < 255) {
+        adjustBacklightBrightness(_backlightBrightness + 15);
+    }   
+}
+
+void decreaseBacklightBrightness() {
+    if (_backlightBrightness > 0) {
+        adjustBacklightBrightness(_backlightBrightness - 15);
+    }
+}
+
 /**********************************************************************************************
 *                                      Memory Read Writes
 *
@@ -1036,6 +1061,7 @@ void loadMenuSettings(){
     _sweatRateCal = preferences.getFloat("_sweatRateCal", 0);
     _sensor_logging = preferences.getBool("sensorLogging", true);
     _battery_logging = preferences.getBool("batteryLogging", false);
+    _backlightBrightness = preferences.getInt("backlightBrightness", 255);
 
     preferences.end();
 }
@@ -1056,6 +1082,7 @@ void writeMenuSettings(){
     preferences.putFloat("_sweatRateCal", _sweatRateCal);
     preferences.putBool("sensorLogging", _sensor_logging);
     preferences.putBool("batteryLogging", _battery_logging);
+    preferences.putInt("backlightBrightness", _backlightBrightness);
 
     preferences.end();
 }
